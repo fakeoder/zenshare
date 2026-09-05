@@ -1,0 +1,17 @@
+{
+  "name": "zenshare",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Share static HTML files from Cloudflare Workers + D1.",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "db:local": "wrangler d1 execute zkraft --local --file=migrations/0001_create_shares.sql",
+    "db:remote": "wrangler d1 execute zkraft --remote --file=migrations/0001_create_shares.sql",
+    "smoke": "node scripts/smoke-test.mjs"
+  },
+  "devDependencies": {
+    "lucide-static": "^1.41.0",
+    "wrangler": "^4.29.0"
+  }
+}
