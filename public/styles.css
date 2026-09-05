@@ -182,6 +182,11 @@ a:hover {
   height: 18px;
 }
 
+.icon-btn .brand-letter {
+  font-size: 17px;
+  font-weight: 800;
+}
+
 .icon-btn.small {
   width: 32px;
   height: 32px;
@@ -297,6 +302,30 @@ textarea.text-input {
   background: var(--accent-soft);
 }
 
+.preview-panel {
+  margin-top: 14px;
+}
+
+.preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.preview-head .field-label {
+  margin-bottom: 0;
+}
+
+.preview-frame {
+  display: block;
+  width: 100%;
+  height: 260px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
 .button-icon {
   width: 16px;
   height: 16px;
@@ -394,6 +423,17 @@ textarea.text-input {
 
 .result-panel .field-label {
   margin-top: 14px;
+}
+
+.result-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.result-actions .btn {
+  width: 100%;
 }
 
 .badge {
@@ -499,30 +539,6 @@ textarea.text-input {
 
 .toolbar .icon-btn {
   background: color-mix(in srgb, var(--surface) 94%, transparent);
-}
-
-.view-brand {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
-  z-index: 50;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-}
-
-.view-brand:hover {
-  color: var(--accent);
-  text-decoration: none;
 }
 
 .lock-screen {
@@ -740,11 +756,6 @@ textarea.text-input {
     right: 12px;
     width: calc(100vw - 24px);
     max-height: calc(100vh - 88px);
-  }
-
-  .view-brand {
-    bottom: 66px;
-    left: 12px;
   }
 
   .lock-form {

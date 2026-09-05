@@ -5,7 +5,7 @@ Cloudflare Worker + D1 的匿名静态 HTML 分享项目。
 ## 功能
 
 - 上传单个 `.html` 文件（最大 512KB），填写 alias 和基础 meta 信息。
-- 访问地址为 `/zenshare/<alias>`。
+- 访问地址为 `/s/<alias>`。
 - alias 唯一：前端提交前查重，D1 侧再以唯一索引兜底。
 - 过期时间默认 7 天，可选 1-30 天；每次读取做懒清理，另有每日 UTC 20:00 Cron 清理。
 - 后门约定：上传时 alias 填 `zenshare/<name>`，实际存储为 `<name>` 并设置为永久分享，且同样查重。
@@ -76,7 +76,7 @@ npm run deploy
 
 Worker 名称、发布路由和 Cron Trigger 都在 `wrangler.toml` 中。Cron 表达式为 `20 0 * * *`（UTC 20:00，即北京时间凌晨 4 点）。
 
-如果要把 `/zenshare/*` 挂到自己的域名，按 Cloudflare 控制台路由规则添加到同一个 Worker 即可。
+如果要把 `/*` 挂到自己的域名，按 Cloudflare 控制台路由规则添加到同一个 Worker 即可。
 
 ## API
 
