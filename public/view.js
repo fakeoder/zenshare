@@ -21,9 +21,11 @@
   const metaBody = document.getElementById('metaBody');
   const downloadBtn = document.getElementById('downloadBtn');
   const printBtn = document.getElementById('printBtn');
+  const shareBtn = document.getElementById('shareBtn');
 
   let unlockedHtml = null;
   let unlocking = false;
+  let unlockPassword = null;
   let frameLoaded = false;
   let frameLoadResolve = null;
 
@@ -104,6 +106,28 @@
     });
   }
 
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const temp = document.createElement('textarea');
+      temp.value = text;
+      temp.style.position = 'fixed';
+      temp.style.opacity = '0';
+      document.body.append(temp);
+      temp.select();
+      document.execCommand('copy');
+      temp.remove();
+    }
+  }
+
+  function buildShareUrl() {
+    const base = new URL(`/s/${data.alias}`, location.origin).href;
+    return data.passwordProtected && unlockPassword
+      ? `${base}?password=${encodeURIComponent(unlockPassword)}`
+      : base;
+  }
+
   function updateLockMeta() {
     const metaTitleText = data.title || data.alias;
     lockMeta.textContent = data.author
@@ -158,6 +182,7 @@
     unlockBtn.disabled = true;
     try {
       const html = await decryptShare(passwordInput.value);
+      unlockPassword = passwordInput.value;
       lockScreen.hidden = true;
       showFrame(html);
     } catch {
@@ -225,6 +250,14 @@
         window.print();
       }
     }
+  });
+
+  shareBtn.addEventListener('click', async () => {
+    await copyToClipboard(buildShareUrl());
+    shareBtn.title = t('shareCopied');
+    setTimeout(() => {
+      shareBtn.title = t('share');
+    }, 1600);
   });
 
   document.addEventListener('zenshare:locale', () => {

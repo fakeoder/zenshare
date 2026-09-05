@@ -3,6 +3,7 @@ const ALIAS_RE = /^[a-z0-9_-]{1,40}$/;
 const BACKDOOR_PREFIX = 'zenshare/';
 const DEFAULT_EXPIRY_DAYS = 7;
 const MAX_EXPIRY_DAYS = 30;
+const MAX_SHARES = 2000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SHARES_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS shares (
@@ -209,6 +210,15 @@ async function handleCreate(request, env) {
     );
   }
   await ensureSchema(env);
+
+  const countRow = await env.DB.prepare('SELECT COUNT(*) AS count FROM shares')
+    .first();
+  if (countRow && Number(countRow.count) >= MAX_SHARES) {
+    return json(
+      { error: '空间不足，请稍后尝试', code: 'storage_full' },
+      503
+    );
+  }
 
   const passwordProtected = body.password_protected === true;
   let salt = null;

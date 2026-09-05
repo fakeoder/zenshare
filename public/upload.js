@@ -238,6 +238,7 @@
       file_too_large: t('fileTooLarge', { size: MAX_BYTES / 1024 }),
       content_empty: t('contentEmpty'),
       expires_invalid: t('expiresInvalid'),
+      storage_full: t('storageFull'),
       field_too_long: t('fieldTooLong'),
       tag_too_long: t('tagTooLong'),
       tags_invalid: t('tagsInvalid'),
