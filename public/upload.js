@@ -13,6 +13,8 @@
   const fileDrop = $('fileDrop');
   const fileText = $('fileText');
   const fileMeta = $('fileMeta');
+  const previewPanel = $('previewPanel');
+  const previewFrame = $('previewFrame');
   const aliasInput = $('aliasInput');
   const aliasStatus = $('aliasStatus');
   const titleInput = $('titleInput');
@@ -25,14 +27,20 @@
   const submitLabel = $('submitLabel');
   const resultPanel = $('resultPanel');
   const resultLink = $('resultLink');
-  const copyBtn = $('copyBtn');
-  const copyLabel = $('copyLabel');
+  const copyLinkBtn = $('copyLinkBtn');
+  const copyLinkLabel = $('copyLinkLabel');
+  const copyPwdBtn = $('copyPwdBtn');
+  const copyPwdLabel = $('copyPwdLabel');
+  const openLinkBtn = $('openLinkBtn');
+  const openLinkLabel = $('openLinkLabel');
   const formError = $('formError');
 
   let selectedFile = null;
   let aliasTimer = null;
   let checkCounter = 0;
   let lastCheck = null;
+  let createdBaseUrl = '';
+  let createdPassword = null;
 
   function rebuildExpiryOptions() {
     const current = expirySelect.value || '7';
@@ -111,28 +119,40 @@
     formError.hidden = true;
   }
 
-  function handleFile(file) {
+  async function handleFile(file) {
     if (!file) {
       selectedFile = null;
       fileText.textContent = t('pickFile');
       fileMeta.textContent = '';
+      previewPanel.hidden = true;
+      previewFrame.srcdoc = '';
       return;
     }
     if (!/\.(html?|xhtml)$/i.test(file.name)) {
       selectedFile = null;
       fileText.textContent = t('pickFile');
       fileMeta.textContent = t('fileTypeError');
+      previewPanel.hidden = true;
+      previewFrame.srcdoc = '';
       return;
     }
     if (file.size > MAX_BYTES) {
       selectedFile = null;
       fileText.textContent = t('pickFile');
       fileMeta.textContent = t('fileTooLarge', { size: MAX_BYTES / 1024 });
+      previewPanel.hidden = true;
+      previewFrame.srcdoc = '';
       return;
     }
     selectedFile = file;
     fileText.textContent = file.name;
     fileMeta.textContent = formatBytes(file.size);
+    try {
+      previewFrame.srcdoc = await file.text();
+      previewPanel.hidden = false;
+    } catch {
+      previewPanel.hidden = true;
+    }
   }
 
   function renderAliasStatus() {
@@ -225,6 +245,22 @@
     return map[result.code] || fallback || t('requestError');
   }
 
+  function withPasswordUrl() {
+    return createdPassword
+      ? `${createdBaseUrl}?password=${encodeURIComponent(createdPassword)}`
+      : createdBaseUrl;
+  }
+
+  function refreshResultButtons() {
+    const hasPassword = Boolean(createdPassword);
+    copyPwdBtn.hidden = !hasPassword;
+    copyLinkLabel.textContent = t('copyLink');
+    copyPwdLabel.textContent = t('copyWithPassword');
+    openLinkLabel.textContent = hasPassword
+      ? t('openLinkWithPassword')
+      : t('openLink');
+  }
+
   fileDrop.addEventListener('click', () => fileInput.click());
   fileDrop.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -315,13 +351,15 @@
         throw new Error(apiError(result, result.error || t('createFailed')));
       }
 
-      resultLink.value = new URL(
-        `/zenshare/${result.alias}`,
+      createdBaseUrl = new URL(
+        `/s/${result.alias}`,
         location.origin
       ).href;
+      createdPassword = passwordInput.value || null;
+      resultLink.value = createdBaseUrl;
+      refreshResultButtons();
       resultPanel.hidden = false;
       resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      copyLabel.textContent = t('copyLink');
     } catch (error) {
       showError(error.message || t('createFailed'));
     } finally {
@@ -329,18 +367,33 @@
     }
   });
 
-  copyBtn.addEventListener('click', async () => {
-    const link = resultLink.value;
+  async function copyText(text, labelEl, resetKey) {
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(text);
     } catch {
-      resultLink.select();
+      const temp = document.createElement('textarea');
+      temp.value = text;
+      temp.style.position = 'fixed';
+      temp.style.opacity = '0';
+      document.body.append(temp);
+      temp.select();
       document.execCommand('copy');
+      temp.remove();
     }
-    copyLabel.textContent = t('copied');
+    labelEl.textContent = t('copied');
     setTimeout(() => {
-      copyLabel.textContent = t('copyLink');
+      labelEl.textContent = t(resetKey || 'copyLink');
     }, 1600);
+  }
+
+  copyLinkBtn.addEventListener('click', () => {
+    copyText(createdBaseUrl, copyLinkLabel, 'copyLink');
+  });
+  copyPwdBtn.addEventListener('click', () => {
+    copyText(withPasswordUrl(), copyPwdLabel, 'copyWithPassword');
+  });
+  openLinkBtn.addEventListener('click', () => {
+    window.open(withPasswordUrl(), '_blank', 'noopener');
   });
 
   document.addEventListener('zenshare:locale', () => {
@@ -353,7 +406,7 @@
     submitLabel.textContent = submitBtn.disabled
       ? t('creating')
       : t('createShare');
-    copyLabel.textContent = t('copyLink');
+    refreshResultButtons();
     if (formError.hidden === false) {
       formError.textContent = formError.dataset.lastKey
         ? t(formError.dataset.lastKey)

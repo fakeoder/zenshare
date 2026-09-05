@@ -24,17 +24,23 @@
 
   let unlockedHtml = null;
   let unlocking = false;
-  let resolveLoaded = null;
-  let frameReady = new Promise((resolve) => {
-    resolveLoaded = resolve;
-  });
+  let frameLoaded = false;
+  let frameLoadResolve = null;
 
   frame.addEventListener('load', () => {
-    resolveLoaded();
-    frameReady = new Promise((resolve) => {
-      resolveLoaded = resolve;
-    });
+    frameLoaded = true;
+    if (frameLoadResolve) {
+      frameLoadResolve();
+      frameLoadResolve = null;
+    }
   });
+
+  function waitForFrameLoad() {
+    if (frameLoaded) return Promise.resolve();
+    return new Promise((resolve) => {
+      frameLoadResolve = resolve;
+    });
+  }
 
   document.title = `${data.title || data.alias} · Zenshare`;
 
@@ -79,6 +85,7 @@
 
   function showFrame(html) {
     unlockedHtml = html;
+    frameLoaded = false;
     frame.srcdoc = html;
     toolbar.hidden = false;
   }
@@ -199,12 +206,24 @@
 
   printBtn.addEventListener('click', async () => {
     if (!unlockedHtml) return;
-    await frameReady;
+    await waitForFrameLoad();
     try {
       frame.contentWindow.focus();
       frame.contentWindow.print();
     } catch {
-      window.print();
+      try {
+        const win = window.open('', '_blank');
+        if (win) {
+          win.document.write(unlockedHtml);
+          win.document.close();
+          win.focus();
+          setTimeout(() => win.print(), 250);
+        } else {
+          window.print();
+        }
+      } catch {
+        window.print();
+      }
     }
   });
 
@@ -219,6 +238,12 @@
   } else {
     updateLockMeta();
     lockScreen.hidden = false;
-    passwordInput.focus();
+    const autoPassword = new URL(location.href).searchParams.get('password');
+    if (autoPassword) {
+      passwordInput.value = autoPassword;
+      handleUnlock();
+    } else {
+      passwordInput.focus();
+    }
   }
 })();

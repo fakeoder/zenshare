@@ -278,7 +278,7 @@ async function handleCreate(request, env) {
   return json({
     ok: true,
     alias: normalized.alias,
-    path: `/zenshare/${normalized.alias}`,
+    path: `/s/${normalized.alias}`,
     permanent: normalized.backdoor,
     expires_at: expiresAt,
   });
@@ -286,12 +286,12 @@ async function handleCreate(request, env) {
 
 async function handleView(request, env) {
   const url = new URL(request.url);
-  const encoded = url.pathname.slice('/zenshare/'.length);
+  const encoded = url.pathname.slice('/s/'.length);
   let alias;
   try {
     alias = decodeURIComponent(encoded);
   } catch {
-    return simplePage(404, 'Not Found', '分享不存在。');
+    return simplePage(404, 'notFound', request);
   }
   const normalized = normalizeAlias(alias);
   if (normalized.error) {
@@ -396,7 +396,7 @@ export default {
     if (request.method === 'POST' && pathname === '/api/share') {
       return handleCreate(request, env);
     }
-    if (request.method === 'GET' && pathname.startsWith('/zenshare/')) {
+    if (request.method === 'GET' && pathname.startsWith('/s/')) {
       return handleView(request, env);
     }
     return env.ASSETS.fetch(request);
