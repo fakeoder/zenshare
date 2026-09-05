@@ -4,6 +4,26 @@ const BACKDOOR_PREFIX = 'zenshare/';
 const DEFAULT_EXPIRY_DAYS = 7;
 const MAX_EXPIRY_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const SHARES_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS shares (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    alias TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    author TEXT NOT NULL DEFAULT '',
+    tags TEXT NOT NULL DEFAULT '[]',
+    content BLOB NOT NULL,
+    salt BLOB,
+    iv BLOB,
+    password_protected INTEGER NOT NULL DEFAULT 0,
+    expires_at INTEGER,
+    is_permanent INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  )
+`;
+const SHARES_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS idx_shares_expires ON shares(expires_at)
+`;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -97,6 +117,22 @@ function simplePage(status, kind, request) {
   );
 }
 
+let schemaPromise = null;
+function ensureSchema(env) {
+  if (!schemaPromise) {
+    schemaPromise = env.DB.batch([
+      env.DB.prepare(SHARES_TABLE_SQL),
+      env.DB.prepare(SHARES_INDEX_SQL),
+    ])
+      .then(() => true)
+      .catch((error) => {
+        schemaPromise = null;
+        throw error;
+      });
+  }
+  return schemaPromise;
+}
+
 async function handleAliasCheck(url, env) {
   const raw = url.searchParams.get('alias') || '';
   const normalized = normalizeAlias(raw);
@@ -107,6 +143,7 @@ async function handleAliasCheck(url, env) {
       code: normalized.code,
     });
   }
+  await ensureSchema(env);
   const row = await env.DB.prepare('SELECT 1 FROM shares WHERE alias = ?')
     .bind(normalized.alias)
     .first();
@@ -171,6 +208,7 @@ async function handleCreate(request, env) {
       413
     );
   }
+  await ensureSchema(env);
 
   const passwordProtected = body.password_protected === true;
   let salt = null;
@@ -259,6 +297,7 @@ async function handleView(request, env) {
   if (normalized.error) {
     return simplePage(404, 'notFound', request);
   }
+  await ensureSchema(env);
 
   const row = await env.DB.prepare(
     `SELECT id, alias, title, description, author, tags, content, salt, iv,
@@ -316,6 +355,7 @@ async function handleView(request, env) {
 }
 
 async function cleanupExpired(env) {
+  await ensureSchema(env);
   const result = await env.DB.prepare(
     `DELETE FROM shares
      WHERE is_permanent = 0 AND expires_at IS NOT NULL AND expires_at <= ?`

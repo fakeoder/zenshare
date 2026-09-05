@@ -64,6 +64,10 @@ wrangler login
 npm run db:remote
 ```
 
+Worker 在首次访问时也会幂等地执行 `CREATE TABLE IF NOT EXISTS`，避免漏跑 migration 导致 D1 报错；仍然建议部署前先执行上面的远程建表命令。
+
+Worker 在首次访问时也会幂等地执行 `CREATE TABLE IF NOT EXISTS`，避免漏跑 migration 导致 D1 报错；仍然建议部署前先执行上面的远程建表命令。
+
 ## 部署
 
 ```bash
