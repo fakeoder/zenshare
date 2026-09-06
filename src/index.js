@@ -1,8 +1,6 @@
 const MAX_BYTES = 512 * 1024;
 const ALIAS_RE = /^[a-z0-9_-]{1,40}$/;
-const BACKDOOR_PREFIX = 'zenshare/';
 const DEFAULT_EXPIRY_DAYS = 7;
-const MAX_EXPIRY_DAYS = 30;
 const MAX_SHARES = 2000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SHARES_TABLE_SQL = `
@@ -37,15 +35,14 @@ function json(data, status = 200) {
 }
 
 function normalizeAlias(raw) {
-  if (typeof raw !== 'string' || !raw.trim()) {
-    return { error: 'alias 不能为空', code: 'alias_empty' };
+  if (raw === undefined || raw === null) {
+    return { alias: '', generated: true };
   }
-  let alias = raw.trim().toLowerCase();
-  let backdoor = false;
-  if (alias.startsWith(BACKDOOR_PREFIX)) {
-    backdoor = true;
-    alias = alias.slice(BACKDOOR_PREFIX.length);
+  if (typeof raw !== 'string') {
+    return { error: 'alias 格式错误', code: 'alias_invalid' };
   }
+  const alias = raw.trim().toLowerCase();
+  if (!alias) return { alias: '', generated: true };
   if (alias === 'zenshare') {
     return { error: 'alias 已被保留', code: 'alias_invalid' };
   }
@@ -55,7 +52,7 @@ function normalizeAlias(raw) {
       code: 'alias_invalid',
     };
   }
-  return { alias, backdoor };
+  return { alias };
 }
 
 function base64ToBytes(b64) {
@@ -144,6 +141,9 @@ async function handleAliasCheck(url, env) {
       code: normalized.code,
     });
   }
+  if (normalized.generated) {
+    return json({ available: true, alias: '', generated: true });
+  }
   await ensureSchema(env);
   const row = await env.DB.prepare('SELECT 1 FROM shares WHERE alias = ?')
     .bind(normalized.alias)
@@ -151,7 +151,7 @@ async function handleAliasCheck(url, env) {
   return json({
     available: !row,
     alias: normalized.alias,
-    permanent: normalized.backdoor,
+    permanent: false,
   });
 }
 
@@ -238,16 +238,17 @@ async function handleCreate(request, env) {
     }
   }
 
+  const isPermanent = body.expires_days === null;
   let expiresAt = null;
-  if (!normalized.backdoor) {
+  if (!isPermanent) {
     const days =
       body.expires_days === undefined
         ? DEFAULT_EXPIRY_DAYS
         : Number(body.expires_days);
-    if (!Number.isInteger(days) || days < 1 || days > MAX_EXPIRY_DAYS) {
+    if (!Number.isInteger(days) || ![1, 7, 30].includes(days)) {
       return json(
         {
-          error: `过期天数需要在 1-${MAX_EXPIRY_DAYS} 之间`,
+          error: '保留时长需为 1 天、7 天、30 天或永久',
           code: 'expires_invalid',
         },
         400
@@ -257,41 +258,50 @@ async function handleCreate(request, env) {
   }
 
   const createdAt = Date.now();
-  try {
-    await env.DB.prepare(
-      `INSERT INTO shares
-        (alias, title, description, author, tags, content, salt, iv, password_protected, expires_at, is_permanent, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-      .bind(
-        normalized.alias,
-        title,
-        description,
-        author,
-        JSON.stringify(tags),
-        content,
-        salt,
-        iv,
-        passwordProtected ? 1 : 0,
-        expiresAt,
-        normalized.backdoor ? 1 : 0,
-        createdAt
+  let alias = normalized.generated ? crypto.randomUUID() : normalized.alias;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      await env.DB.prepare(
+        `INSERT INTO shares
+          (alias, title, description, author, tags, content, salt, iv, password_protected, expires_at, is_permanent, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run();
-  } catch (error) {
-    if (String(error.message).includes('UNIQUE')) {
-      return json({ error: 'alias 已被占用', code: 'alias_taken' }, 409);
+        .bind(
+          alias,
+          title,
+          description,
+          author,
+          JSON.stringify(tags),
+          content,
+          salt,
+          iv,
+          passwordProtected ? 1 : 0,
+          expiresAt,
+          isPermanent ? 1 : 0,
+          createdAt
+        )
+        .run();
+      return json({
+        ok: true,
+        alias,
+        path: `/s/${alias}`,
+        permanent: isPermanent,
+        expires_at: expiresAt,
+      });
+    } catch (error) {
+      if (
+        !normalized.generated ||
+        !String(error.message).includes('UNIQUE') ||
+        attempt === 4
+      ) {
+        if (String(error.message).includes('UNIQUE')) {
+          return json({ error: 'alias 已被占用', code: 'alias_taken' }, 409);
+        }
+        throw error;
+      }
+      alias = crypto.randomUUID();
     }
-    throw error;
   }
-
-  return json({
-    ok: true,
-    alias: normalized.alias,
-    path: `/s/${normalized.alias}`,
-    permanent: normalized.backdoor,
-    expires_at: expiresAt,
-  });
 }
 
 async function handleView(request, env) {

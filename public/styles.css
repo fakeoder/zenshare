@@ -287,9 +287,22 @@ html[data-theme='dark'] .icon-btn .icon-moon {
 }
 
 .field-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   margin-bottom: 7px;
   font-size: 13px;
+  font-weight: 600;
+}
+
+.optional-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -390,6 +403,7 @@ textarea.text-input {
 .summary-meta {
   color: var(--muted);
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .chevron {
@@ -451,6 +465,10 @@ textarea.text-input {
 }
 
 .alias-status.ok {
+  color: var(--accent);
+}
+
+.alias-status.auto {
   color: var(--accent);
 }
 

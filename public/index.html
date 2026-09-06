@@ -121,12 +121,16 @@
                 <span data-i18n="preview"></span>
               </button>
             </div>
+            <span class="field-hint" data-i18n="fileHint"></span>
           </section>
 
           <section class="form-step">
             <div class="step-head">
               <span class="step-number">2</span>
-              <span class="field-label" data-i18n="alias"></span>
+              <span class="field-label">
+                <span data-i18n="customAlias"></span>
+                <span class="optional-badge" data-i18n="optionalShort"></span>
+              </span>
             </div>
             <label class="field">
               <div class="input-with-status">
@@ -137,7 +141,7 @@
                   maxlength="60"
                   autocomplete="off"
                   spellcheck="false"
-                  placeholder="my-report"
+                  data-i18n-placeholder="aliasAutoPlaceholder"
                 />
                 <span id="aliasStatus" class="alias-status" aria-live="polite"></span>
               </div>
@@ -168,7 +172,10 @@
             <div class="advanced-body">
               <div class="field-grid">
                 <label class="field">
-                  <span class="field-label" data-i18n="title"></span>
+                  <span class="field-label">
+                    <span data-i18n="title"></span>
+                    <span class="optional-badge" data-i18n="optionalShort"></span>
+                  </span>
                   <input
                     id="titleInput"
                     class="text-input"
@@ -176,9 +183,13 @@
                     maxlength="200"
                     data-i18n-placeholder="titlePlaceholder"
                   />
+                  <span class="field-hint" data-i18n="titleHint"></span>
                 </label>
                 <label class="field">
-                  <span class="field-label" data-i18n="author"></span>
+                  <span class="field-label">
+                    <span data-i18n="author"></span>
+                    <span class="optional-badge" data-i18n="optionalShort"></span>
+                  </span>
                   <input
                     id="authorInput"
                     class="text-input"
@@ -186,11 +197,15 @@
                     maxlength="100"
                     data-i18n-placeholder="authorPlaceholder"
                   />
+                  <span class="field-hint" data-i18n="authorHint"></span>
                 </label>
               </div>
 
               <label class="field">
-                <span class="field-label" data-i18n="description"></span>
+                <span class="field-label">
+                  <span data-i18n="description"></span>
+                  <span class="optional-badge" data-i18n="optionalShort"></span>
+                </span>
                 <textarea
                   id="descInput"
                   class="text-input"
@@ -198,16 +213,39 @@
                   maxlength="1000"
                   data-i18n-placeholder="descriptionPlaceholder"
                 ></textarea>
+                <span class="field-hint" data-i18n="descriptionHint"></span>
+              </label>
+
+              <label class="field">
+                <span class="field-label">
+                  <span data-i18n="tags"></span>
+                  <span class="optional-badge" data-i18n="optionalShort"></span>
+                </span>
+                <input
+                  id="tagsInput"
+                  class="text-input"
+                  type="text"
+                  maxlength="200"
+                  data-i18n-placeholder="tagsPlaceholder"
+                />
+                <span class="field-hint" data-i18n="tagsHint"></span>
               </label>
 
               <div class="options-grid">
                 <label class="field">
-                  <span class="field-label" data-i18n="expiresIn"></span>
+                  <span class="field-label">
+                    <span data-i18n="expiresIn"></span>
+                    <span class="optional-badge" data-i18n="optionalShort"></span>
+                  </span>
                   <select id="expirySelect" class="text-input"></select>
+                  <span class="field-hint" data-i18n="expiresHint"></span>
                 </label>
 
                 <label class="field">
-                  <span class="field-label" data-i18n="accessPassword"></span>
+                  <span class="field-label">
+                    <span data-i18n="accessPassword"></span>
+                    <span class="optional-badge" data-i18n="optionalShort"></span>
+                  </span>
                   <input
                     id="passwordInput"
                     class="text-input"
@@ -215,6 +253,7 @@
                     autocomplete="new-password"
                     data-i18n-placeholder="optional"
                   />
+                  <span class="field-hint" data-i18n="passwordHint"></span>
                 </label>
               </div>
             </div>
