@@ -123,6 +123,14 @@
     }
 
     function syncCurrentState() {
+      const hideScrollbarsStyle = document.createElement('style');
+      hideScrollbarsStyle.id = 'zenshare-snapshot-hide-scrollbars';
+      hideScrollbarsStyle.textContent =
+        'html, body, * { scrollbar-width: none !important; }' +
+        'html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar {' +
+        ' display: none !important; width: 0 !important; height: 0 !important; }';
+      document.head.append(hideScrollbarsStyle);
+
       const checkboxes = Array.from(
         document.querySelectorAll('input[type="checkbox"], input[type="radio"]')
       ).map((input) => {
@@ -150,6 +158,7 @@
       );
 
       return () => {
+        hideScrollbarsStyle.remove();
         checkboxes.forEach(({ input, hadAttr }) => {
           if (hadAttr) input.setAttribute('checked', '');
           else input.removeAttribute('checked');
@@ -164,6 +173,7 @@
     }
 
     function captureSnapshot() {
+      const restore = syncCurrentState();
       const root = document.documentElement;
       const body = document.body;
       const width = Math.max(
@@ -177,7 +187,6 @@
         root.clientHeight
       );
       const pixelRatio = Math.min(2, window.devicePixelRatio || 1);
-      const restore = syncCurrentState();
       return loadLibrary()
         .then((htmlToImage) =>
           htmlToImage.toBlob(root, {
