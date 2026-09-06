@@ -61,16 +61,9 @@ async function decrypt(cipher, salt, iv, password) {
 }
 
 async function main() {
-  const alias = `smoke-${Date.now().toString(36)}`;
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
   const html = '<!doctype html><h1>Secret Content</h1><p>private note</p>';
   const password = "smoke-pass-123";
-
-  const checkBefore = await (
-    await fetch(`${BASE}/api/alias-check?alias=${alias}`)
-  ).json();
-  if (!checkBefore.available) {
-    throw new Error(`alias ${alias} is already taken`);
-  }
 
   const { cipher, salt, iv } = await encrypt(
     new TextEncoder().encode(html),
@@ -80,7 +73,7 @@ async function main() {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      alias,
+      alias: "",
       title: "Smoke Report",
       author: "smoke",
       tags: ["smoke"],
@@ -88,12 +81,15 @@ async function main() {
       content: bytesToBase64(cipher),
       salt: bytesToBase64(salt),
       iv: bytesToBase64(iv),
-      expires_days: 7,
+      expires_days: null,
     }),
   });
   const created = await createResponse.json();
   if (!createResponse.ok) {
     throw new Error(`create failed: ${JSON.stringify(created)}`);
+  }
+  if (!UUID_RE.test(created.alias) || !created.permanent) {
+    throw new Error("automatic alias or permanent retention failed");
   }
 
   const viewResponse = await fetch(`${BASE}${created.path}`);
@@ -114,6 +110,9 @@ async function main() {
   if (plain !== html) {
     throw new Error("decrypted content does not match uploaded content");
   }
+  if (!data.isPermanent || data.expiresAt !== null) {
+    throw new Error("permanent share metadata is incorrect");
+  }
   let wrongPasswordRejected = false;
   try {
     await decrypt(
@@ -130,17 +129,17 @@ async function main() {
   }
 
   const checkAfter = await (
-    await fetch(`${BASE}/api/alias-check?alias=${alias}`)
+    await fetch(`${BASE}/api/alias-check?alias=${created.alias}`)
   ).json();
   if (checkAfter.available) {
-    throw new Error("alias should be unavailable after create");
+    throw new Error("generated alias should be unavailable after create");
   }
 
   console.log(
     JSON.stringify(
       {
         ok: true,
-        alias,
+        alias: created.alias,
         path: created.path,
         passwordProtected: data.passwordProtected,
         decryptedMatches: true,

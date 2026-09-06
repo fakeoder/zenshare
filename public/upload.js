@@ -3,7 +3,6 @@
   site.init();
 
   const MAX_BYTES = 512 * 1024;
-  const BACKDOOR_PREFIX = 'zenshare/';
   const ALIAS_RE = /^[a-z0-9_-]{1,40}$/;
   const PREVIEW_STORAGE_KEY = 'zenshare.preview';
   const t = (key, vars) => site.t(key, vars);
@@ -44,31 +43,33 @@
   let createdPassword = null;
 
   function rebuildExpiryOptions() {
-    const current = expirySelect.value || '7';
+    const choices = ['1', '7', '30', 'permanent'];
+    const current = choices.includes(expirySelect.value)
+      ? expirySelect.value
+      : '7';
     expirySelect.replaceChildren();
-    for (let day = 1; day <= 30; day += 1) {
+    choices.forEach((value) => {
       const option = document.createElement('option');
-      option.value = String(day);
+      option.value = value;
       option.textContent =
-        day === 7 ? t('dayDefault', { n: day }) : t('day', { n: day });
+        value === 'permanent'
+          ? t('neverDelete')
+          : value === '7'
+            ? t('dayDefault', { n: Number(value) })
+            : t('day', { n: Number(value) });
       expirySelect.append(option);
-    }
+    });
     expirySelect.value = current;
   }
 
   function normalizeAlias(raw) {
     const value = String(raw || '').trim().toLowerCase();
-    if (!value) return { error: 'alias_empty' };
-    let alias = value;
-    let permanent = false;
-    if (alias.startsWith(BACKDOOR_PREFIX)) {
-      permanent = true;
-      alias = alias.slice(BACKDOOR_PREFIX.length);
-    }
+    if (!value) return { alias: '', generated: true };
+    const alias = value;
     if (alias === 'zenshare' || !ALIAS_RE.test(alias)) {
       return { error: 'alias_invalid' };
     }
-    return { alias, permanent };
+    return { alias };
   }
 
   function bytesToBase64(bytes) {
@@ -204,6 +205,11 @@
   }
 
   function renderAliasStatus() {
+    if (!aliasInput.value.trim()) {
+      aliasStatus.textContent = t('aliasAuto');
+      aliasStatus.className = 'alias-status auto';
+      return;
+    }
     if (!lastCheck) {
       aliasStatus.textContent = '';
       aliasStatus.className = 'alias-status';
@@ -219,9 +225,7 @@
       aliasStatus.className = 'alias-status taken';
       return;
     }
-    aliasStatus.textContent = lastCheck.permanent
-      ? t('aliasPermanentAvailable')
-      : t('aliasAvailable');
+    aliasStatus.textContent = t('aliasAvailable');
     aliasStatus.className = 'alias-status ok';
   }
 
@@ -229,7 +233,6 @@
     clearTimeout(aliasTimer);
     const value = aliasInput.value.trim();
     const normalized = normalizeAlias(value);
-    expirySelect.disabled = Boolean(normalized.permanent);
 
     if (!value) {
       lastCheck = null;
@@ -257,10 +260,7 @@
         if (!response.ok || !result.available) {
           lastCheck = { available: false };
         } else {
-          lastCheck = {
-            available: true,
-            permanent: result.permanent || normalized.permanent,
-          };
+          lastCheck = { available: true };
         }
         renderAliasStatus();
       } catch {
@@ -280,7 +280,6 @@
 
   function apiError(result, fallback) {
     const map = {
-      alias_empty: t('aliasEmpty'),
       alias_invalid: t('aliasInvalid'),
       alias_taken: t('aliasTaken'),
       file_too_large: t('fileTooLarge', { size: MAX_BYTES / 1024 }),
@@ -353,13 +352,15 @@
       return;
     }
 
-    const checkResponse = await fetch(
-      `/api/alias-check?alias=${encodeURIComponent(aliasInput.value.trim())}`
-    );
-    const checkResult = await checkResponse.json();
-    if (!checkResponse.ok || !checkResult.available) {
-      showError(apiError(checkResult, t('aliasTaken')));
-      return;
+    if (!normalized.generated) {
+      const checkResponse = await fetch(
+        `/api/alias-check?alias=${encodeURIComponent(normalized.alias)}`
+      );
+      const checkResult = await checkResponse.json();
+      if (!checkResponse.ok || !checkResult.available) {
+        showError(apiError(checkResult, t('aliasTaken')));
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -378,7 +379,10 @@
           .map((tag) => tag.trim())
           .filter(Boolean)
           .slice(0, 10),
-        expires_days: Number(expirySelect.value),
+        expires_days:
+          expirySelect.value === 'permanent'
+            ? null
+            : Number(expirySelect.value),
         password_protected: false,
       };
 

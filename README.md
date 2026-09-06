@@ -4,12 +4,11 @@ An anonymous static HTML sharing service built on Cloudflare Workers and D1.
 
 ## Features
 
-- Upload a single `.html` file up to 512KB with an alias and optional metadata.
+- Upload a single static `.html` file up to 512KB with an optional alias and metadata.
 - Shares are accessible at `/s/<alias>`.
 - Alias availability is checked before upload and enforced with a unique D1 index.
-- Default expiration is 7 days; choose 1-30 days. Expired records are removed by a daily UTC 20:00 cron job and lazily on read.
+- Retention options are 1 day, 7 days (default), 30 days, or permanent. Expired records are removed by a daily UTC 20:00 cron job and lazily on read.
 - D1 keeps up to 2000 shares. When full, creation returns a "storage full" response.
-- Backdoor convention: entering `zenshare/<name>` as the alias stores `<name>` as a permanent share and the same availability check applies.
 - Optional password protection: files are encrypted in the browser with PBKDF2 and AES-256-GCM; the server never stores passwords.
 - Reader pages render content in a sandboxed iframe with meta info, HTML download, PDF export, and a share button.
 - Responsive layout, light/dark theme, and Chinese/English UI.
@@ -71,7 +70,7 @@ The Worker name, routes, and cron trigger are defined in `wrangler.toml`.
 GET /api/alias-check?alias=demo
 ```
 
-Returns availability, the normalized alias, and whether the backdoor prefix was used.
+Returns availability and the normalized alias. An empty or omitted alias is reported as available with `generated: true`.
 
 ### Create Share
 
@@ -82,7 +81,7 @@ Content-Type: application/json
 
 ```json
 {
-  "alias": "demo",
+    "alias": "demo",
   "title": "Report title",
   "description": "Description",
   "author": "Author",
@@ -95,7 +94,7 @@ Content-Type: application/json
 }
 ```
 
-`expires_days` defaults to 7 and must be between 1 and 30. When `password_protected` is `true`, `salt` and `iv` are required.
+`alias` is optional; an empty or omitted value generates a UUID alias. `expires_days` must be `1`, `7`, `30`, or `null` for permanent retention, and defaults to 7. When `password_protected` is `true`, `salt` and `iv` are required.
 
 ## Security Notes
 
