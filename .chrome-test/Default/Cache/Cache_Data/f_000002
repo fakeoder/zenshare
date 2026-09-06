@@ -1,0 +1,572 @@
+(function () {
+  const site = window.ZenshareSite;
+  site.init();
+
+  const data = JSON.parse(
+    document.getElementById('share-data').textContent
+  );
+  const t = (key, vars) => site.t(key, vars);
+
+  const frame = document.getElementById('shareFrame');
+  const lockScreen = document.getElementById('lockScreen');
+  const lockMeta = document.getElementById('lockMeta');
+  const lockError = document.getElementById('lockError');
+  const passwordInput = document.getElementById('passwordInput');
+  const unlockBtn = document.getElementById('unlockBtn');
+  const toolbar = document.getElementById('toolbar');
+  const metaBtn = document.getElementById('metaBtn');
+  const metaPanel = document.getElementById('metaPanel');
+  const metaCloseBtn = document.getElementById('metaCloseBtn');
+  const metaTitle = document.getElementById('metaTitle');
+  const metaBody = document.getElementById('metaBody');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const shareBtn = document.getElementById('shareBtn');
+  const shareDialog = document.getElementById('shareDialog');
+  const shareCloseBtn = document.getElementById('shareCloseBtn');
+  const shareLinkInput = document.getElementById('shareLinkInput');
+  const shareLinkCopyBtn = document.getElementById('shareLinkCopyBtn');
+  const shareLinkCopyLabel = shareLinkCopyBtn.querySelector('span');
+  const snapshotRefreshBtn = document.getElementById('snapshotRefreshBtn');
+  const snapshotCopyBtn = document.getElementById('snapshotCopyBtn');
+  const snapshotDownloadBtn = document.getElementById('snapshotDownloadBtn');
+  const snapshotImage = document.getElementById('snapshotImage');
+  const snapshotStatus = document.getElementById('snapshotStatus');
+
+  let unlockedHtml = null;
+  let unlocking = false;
+  let unlockPassword = null;
+  let frameLoaded = false;
+  let frameLoadResolve = null;
+  let snapshotBlob = null;
+  let snapshotImageUrl = null;
+  let snapshotRequestToken = 0;
+
+  frame.addEventListener('load', () => {
+    frameLoaded = true;
+    if (frameLoadResolve) {
+      frameLoadResolve();
+      frameLoadResolve = null;
+    }
+  });
+
+  function waitForFrameLoad() {
+    if (frameLoaded) return Promise.resolve();
+    return new Promise((resolve) => {
+      frameLoadResolve = resolve;
+    });
+  }
+
+  document.title = `${data.title || data.alias} · Zenshare`;
+
+  function base64ToBytes(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  async function deriveKey(password, salt) {
+    const baseKey = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(password),
+      'PBKDF2',
+      false,
+      ['deriveKey']
+    );
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 100000 },
+      baseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+  }
+
+  async function decryptShare(password) {
+    const salt = base64ToBytes(data.salt);
+    const iv = base64ToBytes(data.iv);
+    const cipher = base64ToBytes(data.content);
+    const key = await deriveKey(password, salt);
+    const plain = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      cipher
+    );
+    return new TextDecoder('utf-8').decode(plain);
+  }
+
+  function snapshotBridge() {
+    const LIBRARY_SRC = '/vendor/html2canvas.min.js';
+    let captureToken = 0;
+
+    function loadLibrary() {
+      return new Promise((resolve, reject) => {
+        if (window.html2canvas) {
+          resolve(window.html2canvas);
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = LIBRARY_SRC;
+        script.async = true;
+        script.onload = () => {
+          if (window.html2canvas) resolve(window.html2canvas);
+          else reject(new Error('html2canvas unavailable'));
+        };
+        script.onerror = () => reject(new Error('html2canvas load failed'));
+        document.head.append(script);
+      });
+    }
+
+    function syncFormState(clonedDoc) {
+      const liveInputs = Array.from(document.querySelectorAll('input'));
+      const clonedInputs = Array.from(clonedDoc.querySelectorAll('input'));
+      liveInputs.forEach((input, index) => {
+        const clone = clonedInputs[index];
+        if (!clone) return;
+        if (input.type === 'checkbox' || input.type === 'radio') {
+          clone.checked = input.checked;
+          if (input.checked) clone.setAttribute('checked', '');
+          else clone.removeAttribute('checked');
+        } else if (
+          input.type !== 'file' &&
+          input.type !== 'password' &&
+          input.type !== 'hidden'
+        ) {
+          clone.value = input.value;
+          clone.setAttribute('value', input.value);
+        }
+      });
+
+      const liveTextareas = Array.from(document.querySelectorAll('textarea'));
+      const clonedTextareas = Array.from(clonedDoc.querySelectorAll('textarea'));
+      liveTextareas.forEach((textarea, index) => {
+        const clone = clonedTextareas[index];
+        if (clone) clone.textContent = textarea.value;
+      });
+
+      const liveSelects = Array.from(document.querySelectorAll('select'));
+      const clonedSelects = Array.from(clonedDoc.querySelectorAll('select'));
+      liveSelects.forEach((select, index) => {
+        const clone = clonedSelects[index];
+        if (!clone || select.selectedIndex < 0) return;
+        const options = clone.querySelectorAll('option');
+        options.forEach((option) => option.removeAttribute('selected'));
+        const selected =
+          options[Math.min(select.selectedIndex, options.length - 1)];
+        if (selected) selected.setAttribute('selected', '');
+      });
+    }
+
+    function syncCanvasState(clonedDoc) {
+      const liveCanvases = Array.from(document.querySelectorAll('canvas'));
+      const clonedCanvases = Array.from(clonedDoc.querySelectorAll('canvas'));
+      liveCanvases.forEach((canvas, index) => {
+        const clone = clonedCanvases[index];
+        if (!clone || !clone.parentNode) return;
+        try {
+          const image = clonedDoc.createElement('img');
+          image.src = canvas.toDataURL('image/png');
+          Array.from(canvas.attributes).forEach((attr) => {
+            if (attr.name !== 'width' && attr.name !== 'height') {
+              image.setAttribute(attr.name, attr.value);
+            }
+          });
+          image.setAttribute('width', String(canvas.width || clone.width || 0));
+          image.setAttribute('height', String(canvas.height || clone.height || 0));
+          clone.parentNode.replaceChild(image, clone);
+        } catch {
+          // Tainted canvases keep the cloned (blank) element.
+        }
+      });
+    }
+
+    function captureSnapshot() {
+      const root = document.documentElement;
+      const body = document.body;
+      const width = Math.max(
+        root.scrollWidth,
+        body ? body.scrollWidth : 0,
+        root.clientWidth
+      );
+      const height = Math.max(
+        root.scrollHeight,
+        body ? body.scrollHeight : 0,
+        root.clientHeight
+      );
+      let scale = Math.min(2, window.devicePixelRatio || 1);
+      const maxDimension = 16384;
+      if (width * scale > maxDimension) {
+        scale = Math.max(0.1, maxDimension / width);
+      }
+      if (height * scale > maxDimension) {
+        scale = Math.max(0.1, maxDimension / height);
+      }
+
+      return loadLibrary().then((html2canvas) =>
+        html2canvas(root, {
+          scale,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: '#ffffff',
+          logging: false,
+          width,
+          height,
+          scrollX: -window.scrollX,
+          scrollY: -window.scrollY,
+          windowWidth: width,
+          windowHeight: height,
+          onclone: (clonedDoc) => {
+            syncFormState(clonedDoc);
+            syncCanvasState(clonedDoc);
+          },
+        })
+      );
+    }
+
+    window.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type !== 'zenshare:capture-snapshot') return;
+      const token = ++captureToken;
+      captureSnapshot()
+        .then((canvas) => {
+          if (token !== captureToken) return;
+          canvas.toBlob((blob) => {
+            if (token !== captureToken) return;
+            parent.postMessage(
+              {
+                type: 'zenshare:snapshot',
+                blob: blob || null,
+                width: canvas.width,
+                height: canvas.height,
+              },
+              '*'
+            );
+          }, 'image/png');
+        })
+        .catch(() => {
+          if (token === captureToken) {
+            parent.postMessage({ type: 'zenshare:snapshot', error: true }, '*');
+          }
+        });
+    });
+  }
+
+  function withSnapshotBridge(html) {
+    const bridge = `<script id="zenshare-snapshot-bridge">(${snapshotBridge.toString()})();</script>`;
+    return `${html}${bridge}`;
+  }
+
+  function showFrame(html) {
+    unlockedHtml = html;
+    frameLoaded = false;
+    frame.srcdoc = withSnapshotBridge(html);
+    toolbar.hidden = false;
+  }
+
+  function locale() {
+    return site.getLang() === 'zh' ? 'zh-CN' : 'en-US';
+  }
+
+  function formatDate(ms) {
+    return new Date(ms).toLocaleString(locale(), {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const temp = document.createElement('textarea');
+      temp.value = text;
+      temp.style.position = 'fixed';
+      temp.style.opacity = '0';
+      document.body.append(temp);
+      temp.select();
+      document.execCommand('copy');
+      temp.remove();
+    }
+  }
+
+  function buildShareUrl() {
+    const base = new URL(`/s/${data.alias}`, location.origin).href;
+    return data.passwordProtected && unlockPassword
+      ? `${base}?password=${encodeURIComponent(unlockPassword)}`
+      : base;
+  }
+
+  function updateLockMeta() {
+    const metaTitleText = data.title || data.alias;
+    lockMeta.textContent = data.author
+      ? `${metaTitleText} · ${data.author}`
+      : metaTitleText;
+  }
+
+  function addMetaRow(label, value) {
+    const row = document.createElement('div');
+    row.className = 'meta-row';
+    const labelEl = document.createElement('div');
+    labelEl.className = 'meta-label';
+    labelEl.textContent = label;
+    const valueEl = document.createElement('div');
+    valueEl.className = 'meta-value';
+    valueEl.textContent = value;
+    row.append(labelEl, valueEl);
+    metaBody.append(row);
+  }
+
+  function buildMeta() {
+    metaTitle.textContent = data.title || data.alias;
+    metaBody.replaceChildren();
+    if (data.author) addMetaRow(t('authorMeta'), data.author);
+    if (data.description) addMetaRow(t('descriptionMeta'), data.description);
+    if (data.tags.length) {
+      const row = document.createElement('div');
+      row.className = 'meta-row';
+      const labelEl = document.createElement('div');
+      labelEl.className = 'meta-label';
+      labelEl.textContent = t('tagsMeta');
+      const list = document.createElement('div');
+      list.className = 'tag-list';
+      data.tags.forEach((tag) => {
+        const tagEl = document.createElement('span');
+        tagEl.className = 'tag';
+        tagEl.textContent = tag;
+        list.append(tagEl);
+      });
+      row.append(labelEl, list);
+      metaBody.append(row);
+    }
+    addMetaRow(t('linkMeta'), location.href);
+    addMetaRow(t('createdMeta'), formatDate(data.createdAt));
+    addMetaRow(t('expiresMeta'), data.isPermanent ? t('permanent') : formatDate(data.expiresAt));
+  }
+
+  async function handleUnlock() {
+    if (unlocking) return;
+    unlocking = true;
+    lockError.hidden = true;
+    unlockBtn.disabled = true;
+    try {
+      const html = await decryptShare(passwordInput.value);
+      unlockPassword = passwordInput.value;
+      lockScreen.hidden = true;
+      showFrame(html);
+    } catch {
+      lockError.hidden = false;
+    } finally {
+      unlocking = false;
+      unlockBtn.disabled = false;
+      passwordInput.value = '';
+      passwordInput.focus();
+    }
+  }
+
+  unlockBtn.addEventListener('click', handleUnlock);
+  passwordInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') handleUnlock();
+  });
+
+  metaBtn.addEventListener('click', () => {
+    buildMeta();
+    metaPanel.hidden = !metaPanel.hidden;
+  });
+  metaCloseBtn.addEventListener('click', () => {
+    metaPanel.hidden = true;
+  });
+  document.addEventListener('click', (event) => {
+    if (
+      !metaPanel.hidden &&
+      !metaPanel.contains(event.target) &&
+      !metaBtn.contains(event.target)
+    ) {
+      metaPanel.hidden = true;
+    }
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    if (!unlockedHtml) return;
+    const blob = new Blob([unlockedHtml], { type: 'text/html;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${data.alias}.html`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  });
+
+  function resetSnapshotButtons() {
+    const hasSnapshot = Boolean(snapshotBlob);
+    snapshotCopyBtn.disabled = !hasSnapshot;
+    snapshotDownloadBtn.disabled = !hasSnapshot;
+  }
+
+  function clearSnapshotPreview() {
+    if (snapshotImageUrl) {
+      URL.revokeObjectURL(snapshotImageUrl);
+      snapshotImageUrl = null;
+    }
+    snapshotBlob = null;
+    snapshotImage.hidden = true;
+    snapshotImage.removeAttribute('src');
+    snapshotStatus.hidden = false;
+    snapshotStatus.classList.remove('error');
+    snapshotStatus.textContent = t('snapshotGenerating');
+    resetSnapshotButtons();
+  }
+
+  function showSnapshotError() {
+    snapshotImage.hidden = true;
+    snapshotImage.removeAttribute('src');
+    snapshotStatus.hidden = false;
+    snapshotStatus.classList.add('error');
+    snapshotStatus.textContent = t('snapshotFailed');
+    resetSnapshotButtons();
+  }
+
+  async function requestSnapshot() {
+    if (!frameLoaded) await waitForFrameLoad();
+    const token = ++snapshotRequestToken;
+    clearSnapshotPreview();
+    const result = await new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        cleanup();
+        resolve(null);
+      }, 20000);
+      function handleMessage(event) {
+        const message = event.data || {};
+        if (
+          event.source !== frame.contentWindow ||
+          message.type !== 'zenshare:snapshot'
+        ) {
+          return;
+        }
+        cleanup();
+        resolve(message);
+      }
+      function cleanup() {
+        clearTimeout(timeout);
+        window.removeEventListener('message', handleMessage);
+      }
+      window.addEventListener('message', handleMessage);
+      try {
+        frame.contentWindow.postMessage(
+          { type: 'zenshare:capture-snapshot' },
+          '*'
+        );
+      } catch {
+        cleanup();
+        resolve(null);
+      }
+    });
+    if (token !== snapshotRequestToken) return;
+    if (!result || result.error || !result.blob) {
+      showSnapshotError();
+      return;
+    }
+    if (snapshotImageUrl) URL.revokeObjectURL(snapshotImageUrl);
+    snapshotBlob = result.blob;
+    snapshotImageUrl = URL.createObjectURL(snapshotBlob);
+    snapshotImage.src = snapshotImageUrl;
+    snapshotImage.hidden = false;
+    snapshotStatus.hidden = true;
+    snapshotStatus.classList.remove('error');
+    resetSnapshotButtons();
+  }
+
+  function openShareDialog() {
+    shareLinkInput.value = buildShareUrl();
+    shareLinkCopyLabel.textContent = t('copyLink');
+    shareDialog.hidden = false;
+    requestSnapshot();
+    shareCloseBtn.focus();
+  }
+
+  function closeShareDialog() {
+    shareDialog.hidden = true;
+    snapshotRequestToken += 1;
+  }
+
+  shareBtn.addEventListener('click', () => {
+    if (!unlockedHtml) return;
+    openShareDialog();
+  });
+
+  shareCloseBtn.addEventListener('click', closeShareDialog);
+
+  shareDialog.addEventListener('click', (event) => {
+    if (event.target === shareDialog) closeShareDialog();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !shareDialog.hidden) closeShareDialog();
+  });
+
+  shareLinkCopyBtn.addEventListener('click', async () => {
+    await copyToClipboard(shareLinkInput.value);
+    shareLinkCopyLabel.textContent = t('copied');
+    setTimeout(() => {
+      shareLinkCopyLabel.textContent = t('copyLink');
+    }, 1600);
+  });
+
+  snapshotRefreshBtn.addEventListener('click', requestSnapshot);
+
+  snapshotCopyBtn.addEventListener('click', async () => {
+    if (!snapshotBlob) return;
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': snapshotBlob }),
+      ]);
+      const label = snapshotCopyBtn.querySelector('span');
+      label.textContent = t('copied');
+      setTimeout(() => {
+        label.textContent = t('copyImage');
+      }, 1600);
+    } catch {
+      snapshotStatus.hidden = false;
+      snapshotStatus.classList.add('error');
+      snapshotStatus.textContent = t('copyImageFailed');
+      setTimeout(() => {
+        if (snapshotImageUrl) snapshotStatus.hidden = true;
+      }, 3000);
+    }
+  });
+
+  snapshotDownloadBtn.addEventListener('click', () => {
+    if (!snapshotBlob || !snapshotImageUrl) return;
+    const link = document.createElement('a');
+    link.href = snapshotImageUrl;
+    link.download = `${data.alias}-snapshot.png`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+  });
+
+  document.addEventListener('zenshare:locale', () => {
+    if (!lockScreen.hidden) updateLockMeta();
+    if (!metaPanel.hidden) buildMeta();
+  });
+
+  if (!data.passwordProtected) {
+    const html = new TextDecoder('utf-8').decode(base64ToBytes(data.content));
+    showFrame(html);
+  } else {
+    updateLockMeta();
+    lockScreen.hidden = false;
+    const autoPassword = new URL(location.href).searchParams.get('password');
+    if (autoPassword) {
+      passwordInput.value = autoPassword;
+      handleUnlock();
+    } else {
+      passwordInput.focus();
+    }
+  }
+})();
