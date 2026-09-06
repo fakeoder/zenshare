@@ -5,6 +5,7 @@
   const MAX_BYTES = 512 * 1024;
   const BACKDOOR_PREFIX = 'zenshare/';
   const ALIAS_RE = /^[a-z0-9_-]{1,40}$/;
+  const PREVIEW_STORAGE_KEY = 'zenshare.preview';
   const t = (key, vars) => site.t(key, vars);
   const $ = (id) => document.getElementById(id);
 
@@ -13,8 +14,7 @@
   const fileDrop = $('fileDrop');
   const fileText = $('fileText');
   const fileMeta = $('fileMeta');
-  const previewPanel = $('previewPanel');
-  const previewFrame = $('previewFrame');
+  const previewBtn = $('previewBtn');
   const aliasInput = $('aliasInput');
   const aliasStatus = $('aliasStatus');
   const titleInput = $('titleInput');
@@ -36,6 +36,7 @@
   const formError = $('formError');
 
   let selectedFile = null;
+  let selectedPreviewHtml = '';
   let aliasTimer = null;
   let checkCounter = 0;
   let lastCheck = null;
@@ -119,39 +120,86 @@
     formError.hidden = true;
   }
 
+  function clearPreview() {
+    try {
+      localStorage.removeItem(PREVIEW_STORAGE_KEY);
+    } catch {
+    }
+    previewBtn.hidden = true;
+  }
+
+  function savePreview(name, content) {
+    localStorage.setItem(
+      PREVIEW_STORAGE_KEY,
+      JSON.stringify({ name, content })
+    );
+    previewBtn.hidden = false;
+  }
+
+  function openPreview() {
+    if (!selectedFile || !selectedPreviewHtml) return;
+    savePreview(selectedFile.name, selectedPreviewHtml);
+    const isMobile =
+      window.matchMedia('(max-width: 700px)').matches ||
+      window.matchMedia('(pointer: coarse)').matches;
+    const availableWidth = window.screen?.availWidth || 1280;
+    const availableHeight = window.screen?.availHeight || 800;
+    const width = Math.max(420, Math.min(1120, Math.round(availableWidth * 0.8)));
+    const height = Math.max(420, Math.min(820, Math.round(availableHeight * 0.82)));
+    const left = Math.max(0, Math.round((availableWidth - width) / 2));
+    const top = Math.max(0, Math.round((availableHeight - height) / 2));
+    const previewWindow = isMobile
+      ? window.open('/preview.html', '_blank')
+      : window.open(
+          '/preview.html',
+          'zenshare-preview',
+          `popup=yes,width=${width},height=${height},left=${left},top=${top}`
+        );
+
+    if (!previewWindow) {
+      showError(t('previewBlocked'));
+      return;
+    }
+    previewWindow.focus();
+  }
+
   async function handleFile(file) {
     if (!file) {
       selectedFile = null;
+      selectedPreviewHtml = '';
       fileText.textContent = t('pickFile');
       fileMeta.textContent = '';
-      previewPanel.hidden = true;
-      previewFrame.srcdoc = '';
+      clearPreview();
       return;
     }
     if (!/\.(html?|xhtml)$/i.test(file.name)) {
       selectedFile = null;
+      selectedPreviewHtml = '';
       fileText.textContent = t('pickFile');
       fileMeta.textContent = t('fileTypeError');
-      previewPanel.hidden = true;
-      previewFrame.srcdoc = '';
+      clearPreview();
       return;
     }
     if (file.size > MAX_BYTES) {
       selectedFile = null;
+      selectedPreviewHtml = '';
       fileText.textContent = t('pickFile');
       fileMeta.textContent = t('fileTooLarge', { size: MAX_BYTES / 1024 });
-      previewPanel.hidden = true;
-      previewFrame.srcdoc = '';
+      clearPreview();
       return;
     }
     selectedFile = file;
     fileText.textContent = file.name;
     fileMeta.textContent = formatBytes(file.size);
     try {
-      previewFrame.srcdoc = await file.text();
-      previewPanel.hidden = false;
+      selectedPreviewHtml = await file.text();
+      savePreview(file.name, selectedPreviewHtml);
     } catch {
-      previewPanel.hidden = true;
+      selectedFile = null;
+      selectedPreviewHtml = '';
+      fileText.textContent = t('pickFile');
+      fileMeta.textContent = t('contentEmpty');
+      clearPreview();
     }
   }
 
@@ -287,6 +335,8 @@
     handleFile(event.dataTransfer.files[0]);
   });
 
+  previewBtn.addEventListener('click', openPreview);
+
   aliasInput.addEventListener('input', updateAliasStatus);
 
   form.addEventListener('submit', async (event) => {
@@ -359,6 +409,10 @@
       createdPassword = passwordInput.value || null;
       resultLink.value = createdBaseUrl;
       refreshResultButtons();
+      try {
+        localStorage.removeItem(PREVIEW_STORAGE_KEY);
+      } catch {
+      }
       resultPanel.hidden = false;
       resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (error) {

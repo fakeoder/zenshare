@@ -62,12 +62,19 @@
       </div>
     </header>
 
-    <main class="shell">
-      <h1 class="page-title" data-i18n="newShare"></h1>
-      <form id="shareForm" class="upload-grid" novalidate>
-        <div class="form-main">
-          <div class="field">
-            <span class="field-label" data-i18n="htmlFile"></span>
+    <main class="shell upload-shell">
+      <section class="upload-card">
+        <header class="upload-header">
+          <h1 class="page-title" data-i18n="newShare"></h1>
+          <p class="upload-subtitle" data-i18n="uploadSubtitle"></p>
+        </header>
+
+        <form id="shareForm" class="upload-form" novalidate>
+          <section class="form-step">
+            <div class="step-head">
+              <span class="step-number">1</span>
+              <span class="field-label" data-i18n="htmlFile"></span>
+            </div>
             <input id="fileInput" type="file" accept=".html,.htm,text/html" hidden />
             <span id="fileDrop" class="dropzone" role="button" tabindex="0">
               <svg
@@ -87,99 +94,131 @@
               </svg>
               <span id="fileText" data-i18n="pickFile"></span>
             </span>
-            <span id="fileMeta" class="field-hint"></span>
-            <section id="previewPanel" class="preview-panel" hidden>
-              <div class="preview-head">
-                <span class="field-label" data-i18n="preview"></span>
-              </div>
-              <iframe
-                id="previewFrame"
-                class="preview-frame"
-                sandbox="allow-scripts"
-                title="Preview"
-              ></iframe>
-            </section>
-          </div>
-
-          <label class="field">
-            <span class="field-label" data-i18n="alias"></span>
-            <div class="input-with-status">
-              <input
-                id="aliasInput"
-                class="text-input"
-                type="text"
-                maxlength="60"
-                autocomplete="off"
-                spellcheck="false"
-                placeholder="my-report"
-              />
-              <span id="aliasStatus" class="alias-status" aria-live="polite"></span>
+            <div class="file-row">
+              <span id="fileMeta" class="field-hint"></span>
+              <button
+                id="previewBtn"
+                class="btn ghost small"
+                type="button"
+                hidden
+                data-i18n-title="previewNewWindow"
+              >
+                <svg
+                  class="button-icon"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M15 3h6v6" />
+                  <path d="M10 14 21 3" />
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                </svg>
+                <span data-i18n="preview"></span>
+              </button>
             </div>
-            <span class="field-hint" data-i18n="aliasHint"></span>
-          </label>
+          </section>
 
-          <div class="field-grid">
+          <section class="form-step">
+            <div class="step-head">
+              <span class="step-number">2</span>
+              <span class="field-label" data-i18n="alias"></span>
+            </div>
             <label class="field">
-              <span class="field-label" data-i18n="title"></span>
-              <input
-                id="titleInput"
-                class="text-input"
-                type="text"
-                maxlength="200"
-                data-i18n-placeholder="titlePlaceholder"
-              />
+              <div class="input-with-status">
+                <input
+                  id="aliasInput"
+                  class="text-input"
+                  type="text"
+                  maxlength="60"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="my-report"
+                />
+                <span id="aliasStatus" class="alias-status" aria-live="polite"></span>
+              </div>
+              <span class="field-hint" data-i18n="aliasHint"></span>
             </label>
-            <label class="field">
-              <span class="field-label" data-i18n="author"></span>
-              <input
-                id="authorInput"
-                class="text-input"
-                type="text"
-                maxlength="100"
-                data-i18n-placeholder="authorPlaceholder"
-              />
-            </label>
-          </div>
+          </section>
 
-          <label class="field">
-            <span class="field-label" data-i18n="description"></span>
-            <textarea
-              id="descInput"
-              class="text-input"
-              rows="3"
-              maxlength="1000"
-              data-i18n-placeholder="descriptionPlaceholder"
-            ></textarea>
-          </label>
+          <details class="advanced-options">
+            <summary>
+              <span class="summary-copy">
+                <span class="summary-text" data-i18n="moreOptions"></span>
+                <span class="summary-meta" data-i18n="moreOptionsMeta"></span>
+              </span>
+              <svg
+                class="chevron"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </summary>
+            <div class="advanced-body">
+              <div class="field-grid">
+                <label class="field">
+                  <span class="field-label" data-i18n="title"></span>
+                  <input
+                    id="titleInput"
+                    class="text-input"
+                    type="text"
+                    maxlength="200"
+                    data-i18n-placeholder="titlePlaceholder"
+                  />
+                </label>
+                <label class="field">
+                  <span class="field-label" data-i18n="author"></span>
+                  <input
+                    id="authorInput"
+                    class="text-input"
+                    type="text"
+                    maxlength="100"
+                    data-i18n-placeholder="authorPlaceholder"
+                  />
+                </label>
+              </div>
 
-          <label class="field">
-            <span class="field-label" data-i18n="tags"></span>
-            <input
-              id="tagsInput"
-              class="text-input"
-              type="text"
-              maxlength="200"
-              data-i18n-placeholder="tagsPlaceholder"
-            />
-          </label>
-        </div>
+              <label class="field">
+                <span class="field-label" data-i18n="description"></span>
+                <textarea
+                  id="descInput"
+                  class="text-input"
+                  rows="3"
+                  maxlength="1000"
+                  data-i18n-placeholder="descriptionPlaceholder"
+                ></textarea>
+              </label>
 
-        <div class="form-side">
-          <label class="field">
-            <span class="field-label" data-i18n="expiresIn"></span>
-            <select id="expirySelect" class="text-input"></select>
-          </label>
+              <div class="options-grid">
+                <label class="field">
+                  <span class="field-label" data-i18n="expiresIn"></span>
+                  <select id="expirySelect" class="text-input"></select>
+                </label>
 
-          <label class="field">
-            <span class="field-label" data-i18n="accessPassword"></span>
-            <input
-              id="passwordInput"
-              class="text-input"
-              type="password"
-              autocomplete="new-password"
-              data-i18n-placeholder="optional"
-            />
-          </label>
+                <label class="field">
+                  <span class="field-label" data-i18n="accessPassword"></span>
+                  <input
+                    id="passwordInput"
+                    class="text-input"
+                    type="password"
+                    autocomplete="new-password"
+                    data-i18n-placeholder="optional"
+                  />
+                </label>
+              </div>
+            </div>
+          </details>
 
           <button id="submitBtn" class="btn primary" type="submit">
             <svg
@@ -263,8 +302,8 @@
           </section>
 
           <p id="formError" class="form-error" role="alert" hidden></p>
-        </div>
       </form>
+      </section>
     </main>
 
     <footer class="footer">
