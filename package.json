@@ -13,5 +13,8 @@
   "devDependencies": {
     "lucide-static": "^1.41.0",
     "wrangler": "^4.29.0"
+  },
+  "dependencies": {
+    "html-to-image": "^1.11.13"
   }
 }

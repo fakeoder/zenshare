@@ -106,22 +106,6 @@
           <path d="m7 10 5 5 5-5" />
         </svg>
       </button>
-      <button id="printBtn" class="icon-btn" type="button" data-i18n-title="exportPdf">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-          <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
-          <rect x="6" y="14" width="12" height="8" rx="1" />
-        </svg>
-      </button>
       <button id="shareBtn" class="icon-btn" type="button" data-i18n-title="share">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -140,6 +124,139 @@
           <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
         </svg>
       </button>
+    </div>
+
+    <div id="shareDialog" class="share-dialog" hidden>
+      <div
+        class="share-dialog-box"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shareDialogTitle"
+      >
+        <header class="share-dialog-head">
+          <h2 id="shareDialogTitle" data-i18n="share"></h2>
+          <button id="shareCloseBtn" class="icon-btn small" type="button" data-i18n-title="close">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </header>
+        <div class="share-dialog-body">
+          <label class="field share-link-field">
+            <span class="field-label" data-i18n="htmlLink"></span>
+            <div class="share-link-row">
+              <input
+                id="shareLinkInput"
+                class="text-input"
+                type="text"
+                readonly
+              />
+              <button id="shareLinkCopyBtn" class="btn ghost" type="button">
+                <svg
+                  class="button-icon"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                </svg>
+                <span data-i18n="copyLink"></span>
+              </button>
+            </div>
+          </label>
+
+          <div class="snapshot-block">
+            <div class="snapshot-head">
+              <span class="field-label" data-i18n="snapshot"></span>
+              <div class="snapshot-actions">
+                <button id="snapshotRefreshBtn" class="btn ghost small" type="button">
+                  <svg
+                    class="button-icon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                  </svg>
+                  <span data-i18n="regenerate"></span>
+                </button>
+                <button
+                  id="snapshotCopyBtn"
+                  class="btn ghost small"
+                  type="button"
+                  disabled
+                >
+                  <svg
+                    class="button-icon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                  </svg>
+                  <span data-i18n="copyImage"></span>
+                </button>
+                <button
+                  id="snapshotDownloadBtn"
+                  class="btn ghost small"
+                  type="button"
+                  disabled
+                >
+                  <svg
+                    class="button-icon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 15V3" />
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="m7 10 5 5 5-5" />
+                  </svg>
+                  <span data-i18n="downloadSnapshot"></span>
+                </button>
+              </div>
+            </div>
+            <p class="field-hint" data-i18n="snapshotHint"></p>
+            <div id="snapshotPreview" class="snapshot-preview" aria-live="polite">
+              <img id="snapshotImage" alt="" hidden />
+              <p id="snapshotStatus" class="snapshot-status" data-i18n="snapshotGenerating"></p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="metaPanel" class="meta-panel" hidden>

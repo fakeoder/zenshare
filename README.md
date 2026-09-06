@@ -10,7 +10,7 @@ An anonymous static HTML sharing service built on Cloudflare Workers and D1.
 - Retention options are 1 day, 7 days (default), 30 days, or permanent. Expired records are removed by a daily UTC 20:00 cron job and lazily on read.
 - D1 keeps up to 2000 shares. When full, creation returns a "storage full" response.
 - Optional password protection: files are encrypted in the browser with PBKDF2 and AES-256-GCM; the server never stores passwords.
-- Reader pages render content in a sandboxed iframe with meta info, HTML download, PDF export, and a share button.
+- Reader pages render content in a sandboxed iframe with meta info, HTML download, and a share panel that provides the HTML link plus a current-state snapshot image.
 - Responsive layout, light/dark theme, and Chinese/English UI.
 
 ## Project Layout
