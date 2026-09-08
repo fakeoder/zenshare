@@ -4,11 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>Terms · Zenshare</title>
+    <title>Service Status · Zenshare</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body data-page="terms">
+  <body data-page="status">
     <header class="topbar">
       <div class="shell topbar-inner">
         <a class="brand" href="/"><span class="brand-mark">Z</span>Zenshare</a>
@@ -62,13 +62,33 @@
       </div>
     </header>
 
-    <main class="legal-shell">
-      <article class="legal-panel">
-        <h1 id="legalTitle"></h1>
-        <p id="legalUpdated" class="legal-updated"></p>
-        <div id="legalSections"></div>
-        <a href="/" data-i18n="backHome"></a>
-      </article>
+    <main class="status-shell">
+      <section class="status-panel" aria-live="polite">
+        <header class="status-head">
+          <h1 data-i18n="statusTitle"></h1>
+          <span id="serviceBadge" class="status-badge"></span>
+        </header>
+        <div class="status-metrics">
+          <div class="metric">
+            <span class="metric-label" data-i18n="statusCapacity"></span>
+            <strong id="capacityText">-</strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label" data-i18n="statusUsed"></span>
+            <strong id="usedText">-</strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label" data-i18n="statusRemaining"></span>
+            <strong id="remainingText">-</strong>
+          </div>
+        </div>
+        <div class="capacity-bar" aria-hidden="true">
+          <div id="capacityFill" class="capacity-fill"></div>
+        </div>
+        <p id="statusDetail" class="status-detail"></p>
+        <p id="statusUpdated" class="status-updated" hidden></p>
+        <p id="statusError" class="status-error" role="alert" hidden></p>
+      </section>
     </main>
 
     <footer class="footer">
@@ -79,9 +99,9 @@
             <p class="muted footer-tagline" data-i18n="tagline"></p>
           </div>
           <nav class="footer-links" aria-label="Footer">
+            <a href="/status.html" data-i18n="statusTitle"></a>
             <a href="/privacy.html" data-i18n="privacy"></a>
             <a href="/terms.html" data-i18n="terms"></a>
-            <a href="/status.html" data-i18n="statusTitle"></a>
             <a href="https://zkraft.cc" target="_blank" rel="noreferrer" data-i18n="products"></a>
             <a href="mailto:contact@zkraft.cc" data-i18n="contact"></a>
             <a href="/license.txt" target="_blank" data-i18n="license"></a>
@@ -96,6 +116,6 @@
     </footer>
 
     <script src="/site.js"></script>
-    <script src="/legal.js"></script>
+    <script src="/status.js"></script>
   </body>
 </html>
