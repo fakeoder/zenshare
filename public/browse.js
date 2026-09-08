@@ -82,7 +82,7 @@
 
     const path = document.createElement('span');
     path.className = 'share-item-path';
-    path.textContent = `/${item.alias}`;
+    path.textContent = `/s/${item.alias}`;
     card.append(path);
 
     if (item.description) {
