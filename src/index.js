@@ -88,6 +88,15 @@ function cleanString(value, max, label) {
   return clean;
 }
 
+function parseTags(raw) {
+  try {
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function simplePage(status, kind, request) {
   const acceptsZh = String(
     request?.headers?.get('accept-language') || ''
@@ -254,7 +263,7 @@ async function handleListShares(url, env) {
     title: row.title,
     description: row.description,
     author: row.author,
-    tags: JSON.parse(row.tags || '[]'),
+    tags: parseTags(row.tags),
     isPermanent: row.is_permanent === 1,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
@@ -456,7 +465,7 @@ async function handleView(request, env) {
     title: row.title,
     description: row.description,
     author: row.author,
-    tags: JSON.parse(row.tags || '[]'),
+    tags: parseTags(row.tags),
     passwordProtected: row.password_protected === 1,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
