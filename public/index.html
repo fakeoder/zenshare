@@ -177,26 +177,39 @@
           <section class="form-step">
             <div class="step-head">
               <span class="step-number">3</span>
-              <span class="field-label" data-i18n="visibility"></span>
+              <span class="field-label" data-i18n="visibilityRetention"></span>
             </div>
-            <div class="segmented" role="group" aria-label="Visibility">
-              <button
-                type="button"
-                class="active"
-                data-visibility="public"
-                data-i18n="visibilityPublic"
-              ></button>
-              <button
-                type="button"
-                data-visibility="private"
-                data-i18n="visibilityPrivate"
-              ></button>
+            <div class="options-grid">
+              <div class="field">
+                <span class="field-label" data-i18n="visibility"></span>
+                <div class="segmented" role="group" aria-label="Visibility">
+                  <button
+                    type="button"
+                    class="active"
+                    data-visibility="public"
+                    data-i18n="visibilityPublic"
+                  ></button>
+                  <button
+                    type="button"
+                    data-visibility="private"
+                    data-i18n="visibilityPrivate"
+                  ></button>
+                </div>
+                <span
+                  id="visibilityHint"
+                  class="field-hint"
+                  data-i18n="visibilityPublicHint"
+                ></span>
+              </div>
+              <label class="field">
+                <span class="field-label">
+                  <span data-i18n="expiresIn"></span>
+                  <span class="optional-badge" data-i18n="optionalShort"></span>
+                </span>
+                <select id="expirySelect" class="text-input"></select>
+                <span class="field-hint" data-i18n="expiresHint"></span>
+              </label>
             </div>
-            <span
-              id="visibilityHint"
-              class="field-hint"
-              data-i18n="visibilityPublicHint"
-            ></span>
             <label id="passwordField" class="field" hidden>
               <span class="field-label" data-i18n="accessPassword"></span>
               <input
@@ -296,14 +309,6 @@
                 <span class="field-hint" data-i18n="tagsHint"></span>
               </label>
 
-              <label class="field">
-                <span class="field-label">
-                  <span data-i18n="expiresIn"></span>
-                  <span class="optional-badge" data-i18n="optionalShort"></span>
-                </span>
-                <select id="expirySelect" class="text-input"></select>
-                <span class="field-hint" data-i18n="expiresHint"></span>
-              </label>
             </div>
           </details>
 
