@@ -21,6 +21,12 @@
   const descInput = $('descInput');
   const tagsInput = $('tagsInput');
   const expirySelect = $('expirySelect');
+  const visibilityButtons = Array.from(
+    document.querySelectorAll('[data-visibility]')
+  );
+  const visibilityHint = $('visibilityHint');
+  const passwordField = $('passwordField');
+  const passwordHint = $('passwordHint');
   const passwordInput = $('passwordInput');
   const submitBtn = $('submitBtn');
   const submitLabel = $('submitLabel');
@@ -36,6 +42,7 @@
 
   let selectedFile = null;
   let selectedPreviewHtml = '';
+  let visibility = 'public';
   let aliasTimer = null;
   let checkCounter = 0;
   let lastCheck = null;
@@ -120,6 +127,35 @@
   function hideError() {
     formError.hidden = true;
   }
+
+  function applyVisibility() {
+    visibilityButtons.forEach((btn) => {
+      const active = btn.dataset.visibility === visibility;
+      btn.classList.toggle('active', active);
+      if (active) {
+        btn.setAttribute('aria-pressed', 'true');
+      } else {
+        btn.removeAttribute('aria-pressed');
+      }
+    });
+    const isPrivate = visibility === 'private';
+    passwordField.hidden = !isPrivate;
+    passwordInput.required = isPrivate;
+    visibilityHint.textContent = t(
+      isPrivate ? 'visibilityPrivateHint' : 'visibilityPublicHint'
+    );
+    passwordHint.textContent = isPrivate
+      ? t('passwordRequired')
+      : t('passwordHint');
+    if (!isPrivate) passwordInput.value = '';
+  }
+
+  visibilityButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      visibility = btn.dataset.visibility;
+      applyVisibility();
+    });
+  });
 
   function clearPreview() {
     try {
@@ -351,6 +387,11 @@
       showError(t('selectFile'));
       return;
     }
+    if (visibility === 'private' && !passwordInput.value.trim()) {
+      showError(t('passwordRequired'));
+      passwordInput.focus();
+      return;
+    }
 
     if (!normalized.generated) {
       const checkResponse = await fetch(
@@ -383,15 +424,14 @@
           expirySelect.value === 'permanent'
             ? null
             : Number(expirySelect.value),
-        password_protected: false,
+        password_protected: visibility === 'private',
       };
 
-      if (passwordInput.value) {
+      if (visibility === 'private') {
         const encrypted = await encryptFile(bytes, passwordInput.value);
         payload.content = bytesToBase64(encrypted.cipher);
         payload.salt = bytesToBase64(encrypted.salt);
         payload.iv = bytesToBase64(encrypted.iv);
-        payload.password_protected = true;
       } else {
         payload.content = bytesToBase64(bytes);
       }
@@ -410,7 +450,7 @@
         `/s/${result.alias}`,
         location.origin
       ).href;
-      createdPassword = passwordInput.value || null;
+      createdPassword = visibility === 'private' ? passwordInput.value : null;
       resultLink.value = createdBaseUrl;
       refreshResultButtons();
       try {
@@ -457,6 +497,7 @@
 
   document.addEventListener('zenshare:locale', () => {
     rebuildExpiryOptions();
+    applyVisibility();
     if (selectedFile) {
       fileText.textContent = selectedFile.name;
       fileMeta.textContent = formatBytes(selectedFile.size);
@@ -474,5 +515,6 @@
   });
 
   rebuildExpiryOptions();
+  applyVisibility();
   renderAliasStatus();
 })();

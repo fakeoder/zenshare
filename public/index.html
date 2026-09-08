@@ -13,6 +13,31 @@
       <div class="shell topbar-inner">
         <a class="brand" href="/"><span class="brand-mark">Z</span>Zenshare</a>
         <div class="topbar-actions">
+          <a
+            class="nav-link"
+            href="/browse.html"
+            data-i18n-title="publicShares"
+            data-i18n-aria-label="publicShares"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="8" x2="21" y1="6" y2="6" />
+              <line x1="8" x2="21" y1="12" y2="12" />
+              <line x1="8" x2="21" y1="18" y2="18" />
+              <line x1="3" x2="3.01" y1="6" y2="6" />
+              <line x1="3" x2="3.01" y1="12" y2="12" />
+              <line x1="3" x2="3.01" y1="18" y2="18" />
+            </svg>
+            <span data-i18n="publicShares"></span>
+          </a>
           <div class="lang-switch" role="group" aria-label="Language">
             <button type="button" data-action="lang" data-set-lang="zh">中</button>
             <button type="button" data-action="lang" data-set-lang="en">EN</button>
@@ -231,6 +256,28 @@
                 <span class="field-hint" data-i18n="tagsHint"></span>
               </label>
 
+              <div class="field visibility-field">
+                <span class="field-label" data-i18n="visibility"></span>
+                <div class="segmented" role="group" aria-label="Visibility">
+                  <button
+                    type="button"
+                    class="active"
+                    data-visibility="public"
+                    data-i18n="visibilityPublic"
+                  ></button>
+                  <button
+                    type="button"
+                    data-visibility="private"
+                    data-i18n="visibilityPrivate"
+                  ></button>
+                </div>
+                <span
+                  id="visibilityHint"
+                  class="field-hint"
+                  data-i18n="visibilityPublicHint"
+                ></span>
+              </div>
+
               <div class="options-grid">
                 <label class="field">
                   <span class="field-label">
@@ -241,10 +288,9 @@
                   <span class="field-hint" data-i18n="expiresHint"></span>
                 </label>
 
-                <label class="field">
+                <label id="passwordField" class="field" hidden>
                   <span class="field-label">
                     <span data-i18n="accessPassword"></span>
-                    <span class="optional-badge" data-i18n="optionalShort"></span>
                   </span>
                   <input
                     id="passwordInput"
@@ -253,7 +299,11 @@
                     autocomplete="new-password"
                     data-i18n-placeholder="optional"
                   />
-                  <span class="field-hint" data-i18n="passwordHint"></span>
+                  <span
+                    id="passwordHint"
+                    class="field-hint"
+                    data-i18n="passwordHint"
+                  ></span>
                 </label>
               </div>
             </div>
@@ -353,6 +403,7 @@
             <p class="muted footer-tagline" data-i18n="tagline"></p>
           </div>
           <nav class="footer-links" aria-label="Footer">
+            <a href="/browse.html" data-i18n="publicShares"></a>
             <a href="/privacy.html" data-i18n="privacy"></a>
             <a href="/terms.html" data-i18n="terms"></a>
             <a href="/status.html" data-i18n="statusTitle"></a>

@@ -183,6 +183,92 @@ async function handleStatus(env) {
   }
 }
 
+function escapeLike(value) {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+function boundedInt(raw, fallback, min, max) {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < min) return fallback;
+  return Math.min(value, max);
+}
+
+async function handleListShares(url, env) {
+  const page = boundedInt(url.searchParams.get('page'), 1, 1, Number.MAX_SAFE_INTEGER);
+  const pageSize = boundedInt(url.searchParams.get('page_size'), 20, 1, 50);
+  const query = String(url.searchParams.get('q') || '').trim().slice(0, 100);
+  const tag = String(url.searchParams.get('tag') || '').trim().slice(0, 30);
+  const permanentOnly = ['1', 'true'].includes(
+    String(url.searchParams.get('permanent') || '').toLowerCase()
+  );
+
+  await ensureSchema(env);
+
+  const where = [
+    's.password_protected = 0',
+    '(s.is_permanent = 1 OR s.expires_at > ?)',
+  ];
+  const params = [Date.now()];
+  if (permanentOnly) {
+    where.push('s.is_permanent = 1');
+  }
+  if (query) {
+    const like = `%${escapeLike(query)}%`;
+    where.push(
+      "(s.alias LIKE ? ESCAPE '\\' OR s.title LIKE ? ESCAPE '\\' OR " +
+        "s.description LIKE ? ESCAPE '\\' OR s.author LIKE ? ESCAPE '\\' OR " +
+        "s.tags LIKE ? ESCAPE '\\')"
+    );
+    params.push(like, like, like, like, like);
+  }
+  if (tag) {
+    where.push(
+      'EXISTS (SELECT 1 FROM json_each(s.tags) AS je WHERE je.value = ?)'
+    );
+    params.push(tag);
+  }
+  const whereSql = `WHERE ${where.join(' AND ')}`;
+
+  const countRow = await env.DB.prepare(
+    `SELECT COUNT(*) AS count FROM shares AS s ${whereSql}`
+  )
+    .bind(...params)
+    .first();
+  const total = countRow ? Number(countRow.count) : 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const offset = (currentPage - 1) * pageSize;
+
+  const result = await env.DB.prepare(
+    `SELECT s.alias, s.title, s.description, s.author, s.tags,
+            s.is_permanent, s.expires_at, s.created_at
+     FROM shares AS s
+     ${whereSql}
+     ORDER BY s.created_at DESC
+     LIMIT ? OFFSET ?`
+  )
+    .bind(...params, pageSize, offset)
+    .all();
+  const items = (result.results || []).map((row) => ({
+    alias: row.alias,
+    title: row.title,
+    description: row.description,
+    author: row.author,
+    tags: JSON.parse(row.tags || '[]'),
+    isPermanent: row.is_permanent === 1,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+  }));
+
+  return json({
+    items,
+    total,
+    page: currentPage,
+    pageSize,
+    totalPages,
+  });
+}
+
 async function handleCreate(request, env) {
   let body;
   try {
@@ -443,6 +529,9 @@ export default {
     }
     if (request.method === 'GET' && pathname === '/api/alias-check') {
       return handleAliasCheck(url, env);
+    }
+    if (request.method === 'GET' && pathname === '/api/shares') {
+      return handleListShares(url, env);
     }
     if (request.method === 'POST' && pathname === '/api/share') {
       return handleCreate(request, env);

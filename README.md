@@ -10,6 +10,8 @@ An anonymous static HTML sharing service built on Cloudflare Workers and D1.
 - Retention options are 1 day, 7 days (default), 30 days, or permanent. Expired records are removed by a daily UTC 20:00 cron job and lazily on read.
 - D1 keeps up to 2000 shares. When full, creation returns a "storage full" response.
 - Optional password protection: files are encrypted in the browser with PBKDF2 and AES-256-GCM; the server never stores passwords.
+- The upload page defaults to a public visibility; turning on Private requires an access password and keeps the share out of the public directory.
+- A public share browser at `/browse.html` lists every unencrypted, unexpired share with search, a permanent-only filter, and pagination. Password-protected shares never appear.
 - Reader pages render content in a sandboxed iframe with meta info, HTML download, and a one-click share that copies the HTML link, including the access password when present.
 - A status page shows service health and share capacity usage: healthy below 80%, warning from 80%, and error at 99% or more.
 - Responsive layout, light/dark theme, and Chinese/English UI.
@@ -97,10 +99,18 @@ Content-Type: application/json
 
 `alias` is optional; an empty or omitted value generates a UUID alias. `expires_days` must be `1`, `7`, `30`, or `null` for permanent retention, and defaults to 7. When `password_protected` is `true`, `salt` and `iv` are required.
 
+### List Public Shares
+
+```http
+GET /api/shares?q=report&tag=demo&permanent=1&page=1&page_size=20
+```
+
+Returns metadata-only items for unencrypted, unexpired shares. `q` searches alias, title, description, author, and tags; `tag` requires an exact tag match; `permanent=1` keeps permanent shares only. Pagination is capped at 50 items per page. The response never includes `content`, `salt`, or `iv`.
+
 ## Security Notes
 
 - Password-protected shares are zero-knowledge: the key is derived in the reader's browser and the server only stores ciphertext, salt, and IV.
-- Unprotected shares are stored as plaintext.
+- Unprotected shares are stored as plaintext and appear in the public share browser; password-protected shares are excluded from the public list.
 - Reader pages render uploaded HTML inside an iframe without `allow-same-origin`, so uploaded scripts cannot access the Zenshare origin.
 - Permanent shares are not editable or deletable through the UI; remove them directly in D1 if needed.
 

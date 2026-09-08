@@ -135,6 +135,62 @@ async function main() {
     throw new Error("generated alias should be unavailable after create");
   }
 
+  const publicHtml = '<!doctype html><h1>Public Smoke Content</h1>';
+  const publicCreateResponse = await fetch(`${BASE}/api/share`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      alias: "",
+      title: "Public Smoke Report",
+      author: "smoke",
+      tags: ["smoke", "public"],
+      password_protected: false,
+      content: bytesToBase64(new TextEncoder().encode(publicHtml)),
+      expires_days: null,
+    }),
+  });
+  const publicCreated = await publicCreateResponse.json();
+  if (!publicCreateResponse.ok) {
+    throw new Error(`public create failed: ${JSON.stringify(publicCreated)}`);
+  }
+
+  const listParams = new URLSearchParams({
+    q: "Public Smoke",
+    page_size: "20",
+    permanent: "1",
+  });
+  const listResponse = await fetch(`${BASE}/api/shares?${listParams}`);
+  const listing = await listResponse.json();
+  if (
+    !listResponse.ok ||
+    !Array.isArray(listing.items) ||
+    listing.total < 1 ||
+    listing.totalPages < 1
+  ) {
+    throw new Error(`public listing failed: ${JSON.stringify(listing)}`);
+  }
+  if (!listing.items.some((item) => item.alias === publicCreated.alias)) {
+    throw new Error("public share should appear in the public list");
+  }
+  if (listing.items.some((item) => item.alias === created.alias)) {
+    throw new Error("password-protected share must not appear in the public list");
+  }
+  if (listing.items.some((item) => "content" in item)) {
+    throw new Error("public list must not expose share content");
+  }
+
+  const tagResponse = await fetch(`${BASE}/api/shares?tag=public&page_size=20`);
+  const tagged = await tagResponse.json();
+  if (!tagResponse.ok || !tagged.items.some((item) => item.alias === publicCreated.alias)) {
+    throw new Error(`tag filter failed: ${JSON.stringify(tagged)}`);
+  }
+
+  const missResponse = await fetch(`${BASE}/api/shares?q=missing-share-term&page_size=5`);
+  const missed = await missResponse.json();
+  if (missed.total !== 0 || missed.items.length !== 0) {
+    throw new Error(`search miss should be empty: ${JSON.stringify(missed)}`);
+  }
+
   console.log(
     JSON.stringify(
       {
@@ -145,6 +201,11 @@ async function main() {
         decryptedMatches: true,
         wrongPasswordRejected,
         duplicateCheckAfterCreate: !checkAfter.available,
+        publicListAlias: publicCreated.alias,
+        publicListExcludesPasswordProtected: true,
+        publicListOmitsContent: true,
+        tagFilterMatches: true,
+        searchMissEmpty: true,
       },
       null,
       2
