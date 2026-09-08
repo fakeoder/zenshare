@@ -21,40 +21,12 @@
   const metaBody = document.getElementById('metaBody');
   const downloadBtn = document.getElementById('downloadBtn');
   const shareBtn = document.getElementById('shareBtn');
-  const shareDialog = document.getElementById('shareDialog');
-  const shareCloseBtn = document.getElementById('shareCloseBtn');
-  const shareLinkInput = document.getElementById('shareLinkInput');
-  const shareLinkCopyBtn = document.getElementById('shareLinkCopyBtn');
-  const shareLinkCopyLabel = shareLinkCopyBtn.querySelector('span');
-  const snapshotRefreshBtn = document.getElementById('snapshotRefreshBtn');
-  const snapshotCopyBtn = document.getElementById('snapshotCopyBtn');
-  const snapshotDownloadBtn = document.getElementById('snapshotDownloadBtn');
-  const snapshotImage = document.getElementById('snapshotImage');
-  const snapshotStatus = document.getElementById('snapshotStatus');
+  const shareToast = document.getElementById('shareToast');
 
   let unlockedHtml = null;
   let unlocking = false;
   let unlockPassword = null;
-  let frameLoaded = false;
-  let frameLoadResolve = null;
-  let snapshotBlob = null;
-  let snapshotImageUrl = null;
-  let snapshotRequestToken = 0;
-
-  frame.addEventListener('load', () => {
-    frameLoaded = true;
-    if (frameLoadResolve) {
-      frameLoadResolve();
-      frameLoadResolve = null;
-    }
-  });
-
-  function waitForFrameLoad() {
-    if (frameLoaded) return Promise.resolve();
-    return new Promise((resolve) => {
-      frameLoadResolve = resolve;
-    });
-  }
+  let shareToastTimer = null;
 
   document.title = `${data.title || data.alias} · Zenshare`;
 
@@ -97,141 +69,9 @@
     return new TextDecoder('utf-8').decode(plain);
   }
 
-  function snapshotBridge() {
-    const LIBRARY_SRC = '/vendor/html-to-image.js';
-    let captureToken = 0;
-
-    function loadLibrary() {
-      return new Promise((resolve, reject) => {
-        if (window.htmlToImage && window.htmlToImage.toBlob) {
-          resolve(window.htmlToImage);
-          return;
-        }
-        const script = document.createElement('script');
-        script.src = LIBRARY_SRC;
-        script.async = true;
-        script.onload = () => {
-          if (window.htmlToImage && window.htmlToImage.toBlob) {
-            resolve(window.htmlToImage);
-          } else {
-            reject(new Error('html-to-image unavailable'));
-          }
-        };
-        script.onerror = () => reject(new Error('html-to-image load failed'));
-        document.head.append(script);
-      });
-    }
-
-    function syncCurrentState() {
-      const hideScrollbarsStyle = document.createElement('style');
-      hideScrollbarsStyle.id = 'zenshare-snapshot-hide-scrollbars';
-      hideScrollbarsStyle.textContent =
-        'html, body, * { scrollbar-width: none !important; }' +
-        'html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar {' +
-        ' display: none !important; width: 0 !important; height: 0 !important; }';
-      document.head.append(hideScrollbarsStyle);
-
-      const checkboxes = Array.from(
-        document.querySelectorAll('input[type="checkbox"], input[type="radio"]')
-      ).map((input) => {
-        const hadAttr = input.hasAttribute('checked');
-        if (input.checked) input.setAttribute('checked', '');
-        else input.removeAttribute('checked');
-        return { input, hadAttr };
-      });
-
-      const selects = Array.from(document.querySelectorAll('select')).map(
-        (select) => {
-          const options = Array.from(select.options);
-          const original = options.map((option) =>
-            option.hasAttribute('selected')
-          );
-          options.forEach((option) => option.removeAttribute('selected'));
-          Array.from(select.selectedOptions).forEach((option) => {
-            option.setAttribute('selected', '');
-          });
-          if (!select.selectedOptions.length && options.length) {
-            options[0].setAttribute('selected', '');
-          }
-          return { options, original };
-        }
-      );
-
-      return () => {
-        hideScrollbarsStyle.remove();
-        checkboxes.forEach(({ input, hadAttr }) => {
-          if (hadAttr) input.setAttribute('checked', '');
-          else input.removeAttribute('checked');
-        });
-        selects.forEach(({ options, original }) => {
-          options.forEach((option, index) => {
-            if (original[index]) option.setAttribute('selected', '');
-            else option.removeAttribute('selected');
-          });
-        });
-      };
-    }
-
-    function captureSnapshot() {
-      const restore = syncCurrentState();
-      const root = document.documentElement;
-      const body = document.body;
-      const width = Math.max(
-        root.scrollWidth,
-        body ? body.scrollWidth : 0,
-        root.clientWidth
-      );
-      const height = Math.max(
-        root.scrollHeight,
-        body ? body.scrollHeight : 0,
-        root.clientHeight
-      );
-      const pixelRatio = Math.min(2, window.devicePixelRatio || 1);
-      return loadLibrary()
-        .then((htmlToImage) =>
-          htmlToImage.toBlob(root, {
-            width,
-            height,
-            pixelRatio,
-            backgroundColor: '#ffffff',
-            cacheBust: false,
-          })
-        )
-        .finally(restore);
-    }
-
-    window.addEventListener('message', (event) => {
-      const data = event.data || {};
-      if (data.type !== 'zenshare:capture-snapshot') return;
-      const token = ++captureToken;
-      captureSnapshot()
-        .then((blob) => {
-          if (token !== captureToken) return;
-          parent.postMessage(
-            {
-              type: 'zenshare:snapshot',
-              blob: blob || null,
-            },
-            '*'
-          );
-        })
-        .catch(() => {
-          if (token === captureToken) {
-            parent.postMessage({ type: 'zenshare:snapshot', error: true }, '*');
-          }
-        });
-    });
-  }
-
-  function withSnapshotBridge(html) {
-    const bridge = `<script id="zenshare-snapshot-bridge">(${snapshotBridge.toString()})();</script>`;
-    return `${html}${bridge}`;
-  }
-
   function showFrame(html) {
     unlockedHtml = html;
-    frameLoaded = false;
-    frame.srcdoc = withSnapshotBridge(html);
+    frame.srcdoc = html;
     toolbar.hidden = false;
   }
 
@@ -262,6 +102,15 @@
       document.execCommand('copy');
       temp.remove();
     }
+  }
+
+  function showShareToast() {
+    shareToast.textContent = t('copied');
+    shareToast.hidden = false;
+    clearTimeout(shareToastTimer);
+    shareToastTimer = setTimeout(() => {
+      shareToast.hidden = true;
+    }, 1600);
   }
 
   function buildShareUrl() {
@@ -372,158 +221,16 @@
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   });
 
-  function resetSnapshotButtons() {
-    const hasSnapshot = Boolean(snapshotBlob);
-    snapshotCopyBtn.disabled = !hasSnapshot;
-    snapshotDownloadBtn.disabled = !hasSnapshot;
-  }
-
-  function clearSnapshotPreview() {
-    if (snapshotImageUrl) {
-      URL.revokeObjectURL(snapshotImageUrl);
-      snapshotImageUrl = null;
-    }
-    snapshotBlob = null;
-    snapshotImage.hidden = true;
-    snapshotImage.removeAttribute('src');
-    snapshotStatus.hidden = false;
-    snapshotStatus.classList.remove('error');
-    snapshotStatus.textContent = t('snapshotGenerating');
-    resetSnapshotButtons();
-  }
-
-  function showSnapshotError() {
-    snapshotImage.hidden = true;
-    snapshotImage.removeAttribute('src');
-    snapshotStatus.hidden = false;
-    snapshotStatus.classList.add('error');
-    snapshotStatus.textContent = t('snapshotFailed');
-    resetSnapshotButtons();
-  }
-
-  async function requestSnapshot() {
-    if (!frameLoaded) await waitForFrameLoad();
-    if (shareDialog.hidden) return;
-    const token = ++snapshotRequestToken;
-    clearSnapshotPreview();
-    const result = await new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        cleanup();
-        resolve(null);
-      }, 20000);
-      function handleMessage(event) {
-        const message = event.data || {};
-        if (
-          event.source !== frame.contentWindow ||
-          message.type !== 'zenshare:snapshot'
-        ) {
-          return;
-        }
-        cleanup();
-        resolve(message);
-      }
-      function cleanup() {
-        clearTimeout(timeout);
-        window.removeEventListener('message', handleMessage);
-      }
-      window.addEventListener('message', handleMessage);
-      try {
-        frame.contentWindow.postMessage(
-          { type: 'zenshare:capture-snapshot' },
-          '*'
-        );
-      } catch {
-        cleanup();
-        resolve(null);
-      }
-    });
-    if (token !== snapshotRequestToken) return;
-    if (!result || result.error || !result.blob) {
-      showSnapshotError();
-      return;
-    }
-    if (snapshotImageUrl) URL.revokeObjectURL(snapshotImageUrl);
-    snapshotBlob = result.blob;
-    snapshotImageUrl = URL.createObjectURL(snapshotBlob);
-    snapshotImage.src = snapshotImageUrl;
-    snapshotImage.hidden = false;
-    snapshotStatus.hidden = true;
-    snapshotStatus.classList.remove('error');
-    resetSnapshotButtons();
-  }
-
-  function openShareDialog() {
-    shareLinkInput.value = buildShareUrl();
-    shareLinkCopyLabel.textContent = t('copyLink');
-    shareDialog.hidden = false;
-    requestSnapshot();
-    shareCloseBtn.focus();
-  }
-
-  function closeShareDialog() {
-    shareDialog.hidden = true;
-    snapshotRequestToken += 1;
-  }
-
-  shareBtn.addEventListener('click', () => {
+  shareBtn.addEventListener('click', async () => {
     if (!unlockedHtml) return;
-    openShareDialog();
-  });
-
-  shareCloseBtn.addEventListener('click', closeShareDialog);
-
-  shareDialog.addEventListener('click', (event) => {
-    if (event.target === shareDialog) closeShareDialog();
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !shareDialog.hidden) closeShareDialog();
-  });
-
-  shareLinkCopyBtn.addEventListener('click', async () => {
-    await copyToClipboard(shareLinkInput.value);
-    shareLinkCopyLabel.textContent = t('copied');
-    setTimeout(() => {
-      shareLinkCopyLabel.textContent = t('copyLink');
-    }, 1600);
-  });
-
-  snapshotRefreshBtn.addEventListener('click', requestSnapshot);
-
-  snapshotCopyBtn.addEventListener('click', async () => {
-    if (!snapshotBlob) return;
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': snapshotBlob }),
-      ]);
-      const label = snapshotCopyBtn.querySelector('span');
-      label.textContent = t('copied');
-      setTimeout(() => {
-        label.textContent = t('copyImage');
-      }, 1600);
-    } catch {
-      snapshotStatus.hidden = false;
-      snapshotStatus.classList.add('error');
-      snapshotStatus.textContent = t('copyImageFailed');
-      setTimeout(() => {
-        if (snapshotImageUrl) snapshotStatus.hidden = true;
-      }, 3000);
-    }
-  });
-
-  snapshotDownloadBtn.addEventListener('click', () => {
-    if (!snapshotBlob || !snapshotImageUrl) return;
-    const link = document.createElement('a');
-    link.href = snapshotImageUrl;
-    link.download = `${data.alias}-snapshot.png`;
-    document.body.append(link);
-    link.click();
-    link.remove();
+    await copyToClipboard(buildShareUrl());
+    showShareToast();
   });
 
   document.addEventListener('zenshare:locale', () => {
     if (!lockScreen.hidden) updateLockMeta();
     if (!metaPanel.hidden) buildMeta();
+    if (!shareToast.hidden) shareToast.textContent = t('copied');
   });
 
   if (!data.passwordProtected) {

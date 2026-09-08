@@ -155,6 +155,34 @@ async function handleAliasCheck(url, env) {
   });
 }
 
+function statusForUsage(percent) {
+  if (percent >= 99) return 'error';
+  if (percent >= 80) return 'warning';
+  return 'healthy';
+}
+
+async function handleStatus(env) {
+  try {
+    await ensureSchema(env);
+    const row = await env.DB.prepare('SELECT COUNT(*) AS count FROM shares')
+      .first();
+    const used = row ? Number(row.count) : 0;
+    const max = MAX_SHARES;
+    const percent = max > 0 ? (used / max) * 100 : 0;
+    return json({
+      ok: true,
+      status: statusForUsage(percent),
+      max,
+      used,
+      remaining: Math.max(0, max - used),
+      percent: Math.round(percent * 10) / 10,
+      checkedAt: Date.now(),
+    });
+  } catch {
+    return json({ ok: false, status: 'error', checkedAt: Date.now() }, 503);
+  }
+}
+
 async function handleCreate(request, env) {
   let body;
   try {
@@ -410,6 +438,9 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
 
+    if (request.method === 'GET' && pathname === '/api/status') {
+      return handleStatus(env);
+    }
     if (request.method === 'GET' && pathname === '/api/alias-check') {
       return handleAliasCheck(url, env);
     }
