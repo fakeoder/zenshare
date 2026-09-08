@@ -1035,6 +1035,221 @@ textarea.text-input {
   color: var(--danger);
 }
 
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.nav-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.nav-link.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.nav-link svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.browse-shell {
+  width: min(920px, calc(100% - 32px));
+  margin: 40px auto 72px;
+}
+
+.browse-panel {
+  padding: 32px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.browse-head {
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.browse-head .page-title {
+  margin: 0 0 6px;
+}
+
+.browse-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.search-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-field .text-input {
+  padding-left: 38px;
+}
+
+.search-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.segmented button {
+  min-width: 52px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented button.active {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.browse-meta {
+  min-height: 20px;
+  margin: 2px 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.browse-list {
+  display: grid;
+  gap: 10px;
+}
+
+.share-item {
+  display: block;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.share-item:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  text-decoration: none;
+}
+
+.share-item-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.share-item-path {
+  display: block;
+  margin-top: 2px;
+  color: var(--accent);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.share-item-desc {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.share-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.share-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.browse-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.page-info {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.browse-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 44px 20px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.browse-empty svg {
+  width: 26px;
+  height: 26px;
+}
+
+.browse-empty p {
+  margin: 0;
+  font-size: 14px;
+}
+
 @media (max-width: 800px) {
   .field-grid {
     grid-template-columns: 1fr;
@@ -1051,6 +1266,19 @@ textarea.text-input {
   .status-panel {
     padding: 24px 20px;
   }
+
+  .browse-panel {
+    padding: 24px 20px;
+  }
+
+  .browse-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .segmented {
+    align-self: center;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1064,6 +1292,16 @@ textarea.text-input {
 
   .topbar-actions {
     gap: 8px;
+  }
+
+  .nav-link span {
+    display: none;
+  }
+
+  .nav-link {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
   }
 
   .page-title {

@@ -4,18 +4,20 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>Privacy · Zenshare</title>
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Zenshare</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body data-page="privacy">
+  <body>
     <header class="topbar">
       <div class="shell topbar-inner">
         <a class="brand" href="/"><span class="brand-mark">Z</span>Zenshare</a>
         <div class="topbar-actions">
           <a
-            class="nav-link"
+            class="nav-link active"
             href="/browse.html"
+            aria-current="page"
             data-i18n-title="publicShares"
             data-i18n-aria-label="publicShares"
           >
@@ -87,13 +89,74 @@
       </div>
     </header>
 
-    <main class="legal-shell">
-      <article class="legal-panel">
-        <h1 id="legalTitle"></h1>
-        <p id="legalUpdated" class="legal-updated"></p>
-        <div id="legalSections"></div>
-        <a href="/" data-i18n="backHome"></a>
-      </article>
+    <main class="shell browse-shell">
+      <section class="browse-panel">
+        <header class="browse-head">
+          <h1 class="page-title" data-i18n="browseTitle"></h1>
+          <p class="upload-subtitle" data-i18n="browseSubtitle"></p>
+        </header>
+
+        <form id="browseForm" class="browse-filters" role="search" novalidate>
+          <label class="search-field">
+            <svg
+              class="search-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              id="searchInput"
+              class="text-input"
+              type="search"
+              maxlength="100"
+              autocomplete="off"
+              spellcheck="false"
+              data-i18n-placeholder="searchPlaceholder"
+            />
+          </label>
+          <div class="segmented" role="group" aria-label="Filter">
+            <button type="button" class="active" data-filter="all" data-i18n="filterAll"></button>
+            <button type="button" data-filter="permanent" data-i18n="filterPermanent"></button>
+          </div>
+        </form>
+
+        <div id="browseMeta" class="browse-meta" aria-live="polite"></div>
+        <div id="browseList" class="browse-list"></div>
+
+        <div id="browseEmpty" class="browse-empty" hidden>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+            <path d="m8 11 2 2 4-4" />
+          </svg>
+          <p data-i18n="noResults"></p>
+        </div>
+
+        <p id="browseError" class="form-error" role="alert" hidden></p>
+
+        <nav id="browsePager" class="browse-pager" aria-label="Pagination" hidden>
+          <button id="prevBtn" class="btn ghost small" type="button" data-i18n="previousPage"></button>
+          <span id="pageInfo" class="page-info"></span>
+          <button id="nextBtn" class="btn ghost small" type="button" data-i18n="nextPage"></button>
+        </nav>
+      </section>
     </main>
 
     <footer class="footer">
@@ -122,6 +185,6 @@
     </footer>
 
     <script src="/site.js"></script>
-    <script src="/legal.js"></script>
+    <script src="/browse.js"></script>
   </body>
 </html>
