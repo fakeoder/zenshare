@@ -721,6 +721,76 @@ textarea.text-input {
   background: color-mix(in srgb, var(--surface) 94%, transparent);
 }
 
+.toolbar-trigger .icon-close {
+  display: none;
+}
+
+.toolbar-trigger.open .icon-more {
+  display: none;
+}
+
+.toolbar-trigger.open .icon-close {
+  display: block;
+}
+
+.action-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 70;
+  width: 220px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.action-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.action-menu-item:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.action-menu-item svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.action-menu-item .brand-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 5px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .lock-screen {
   position: fixed;
   inset: 0;
@@ -858,10 +928,10 @@ textarea.text-input {
 
 .share-toast {
   position: fixed;
-  left: 50%;
-  bottom: 28px;
+  top: 74px;
+  right: 18px;
   z-index: 120;
-  transform: translateX(-50%);
+  max-width: calc(100vw - 36px);
   padding: 9px 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -869,6 +939,7 @@ textarea.text-input {
   box-shadow: var(--shadow);
   color: var(--ink);
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .legal-shell {
@@ -1324,6 +1395,18 @@ textarea.text-input {
     top: auto;
     right: 12px;
     bottom: 12px;
+  }
+
+  .action-menu {
+    top: auto;
+    right: 0;
+    bottom: calc(100% + 10px);
+  }
+
+  .share-toast {
+    top: auto;
+    right: 12px;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
 
   .meta-panel {

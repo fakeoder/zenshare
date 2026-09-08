@@ -71,11 +71,17 @@
     </div>
 
     <div id="toolbar" class="toolbar" hidden>
-      <a class="icon-btn brand-icon" href="/" data-i18n-title="backHome" aria-label="Zenshare">
-        <span class="brand-letter">Z</span>
-      </a>
-      <button id="metaBtn" class="icon-btn" type="button" data-i18n-title="info">
+      <button
+        id="menuBtn"
+        class="icon-btn toolbar-trigger"
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded="false"
+        data-i18n-title="moreActions"
+        data-i18n-aria-label="moreActions"
+      >
         <svg
+          class="icon-more"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="none"
@@ -85,13 +91,12 @@
           stroke-linejoin="round"
           aria-hidden="true"
         >
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 16v-4" />
-          <path d="M12 8h.01" />
+          <circle cx="12" cy="12" r="1" />
+          <circle cx="19" cy="12" r="1" />
+          <circle cx="5" cy="12" r="1" />
         </svg>
-      </button>
-      <button id="downloadBtn" class="icon-btn" type="button" data-i18n-title="downloadHtml">
         <svg
+          class="icon-close"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="none"
@@ -101,29 +106,70 @@
           stroke-linejoin="round"
           aria-hidden="true"
         >
-          <path d="M12 15V3" />
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <path d="m7 10 5 5 5-5" />
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
         </svg>
       </button>
-      <button id="shareBtn" class="icon-btn" type="button" data-i18n-title="share">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="18" cy="5" r="3" />
-          <circle cx="6" cy="12" r="3" />
-          <circle cx="18" cy="19" r="3" />
-          <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" />
-          <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
-        </svg>
-      </button>
+
+      <div id="actionMenu" class="action-menu" role="menu" hidden>
+        <a class="action-menu-item" href="/" role="menuitem">
+          <span class="brand-letter">Z</span>
+          <span data-i18n="backHome"></span>
+        </a>
+        <button id="metaBtn" class="action-menu-item" type="button" role="menuitem">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4" />
+            <path d="M12 8h.01" />
+          </svg>
+          <span data-i18n="info"></span>
+        </button>
+        <button id="downloadBtn" class="action-menu-item" type="button" role="menuitem">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 15V3" />
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <path d="m7 10 5 5 5-5" />
+          </svg>
+          <span data-i18n="downloadHtml"></span>
+        </button>
+        <button id="shareBtn" class="action-menu-item" type="button" role="menuitem">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" />
+            <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
+          </svg>
+          <span data-i18n="share"></span>
+        </button>
+      </div>
     </div>
 
     <div id="shareToast" class="share-toast" role="status" aria-live="polite" hidden></div>

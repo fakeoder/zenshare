@@ -14,6 +14,8 @@
   const passwordInput = document.getElementById('passwordInput');
   const unlockBtn = document.getElementById('unlockBtn');
   const toolbar = document.getElementById('toolbar');
+  const menuBtn = document.getElementById('menuBtn');
+  const actionMenu = document.getElementById('actionMenu');
   const metaBtn = document.getElementById('metaBtn');
   const metaPanel = document.getElementById('metaPanel');
   const metaCloseBtn = document.getElementById('metaCloseBtn');
@@ -72,7 +74,19 @@
   function showFrame(html) {
     unlockedHtml = html;
     frame.srcdoc = html;
+    closeMenu();
     toolbar.hidden = false;
+  }
+
+  function setMenu(open) {
+    actionMenu.hidden = !open;
+    menuBtn.classList.toggle('open', open);
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) metaPanel.hidden = true;
+  }
+
+  function closeMenu() {
+    setMenu(false);
   }
 
   function locale() {
@@ -192,7 +206,14 @@
     if (event.key === 'Enter') handleUnlock();
   });
 
-  metaBtn.addEventListener('click', () => {
+  menuBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setMenu(actionMenu.hidden);
+  });
+
+  metaBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    closeMenu();
     buildMeta();
     metaPanel.hidden = !metaPanel.hidden;
   });
@@ -200,16 +221,20 @@
     metaPanel.hidden = true;
   });
   document.addEventListener('click', (event) => {
+    if (!actionMenu.hidden && !toolbar.contains(event.target)) {
+      closeMenu();
+    }
     if (
       !metaPanel.hidden &&
       !metaPanel.contains(event.target) &&
-      !metaBtn.contains(event.target)
+      !toolbar.contains(event.target)
     ) {
       metaPanel.hidden = true;
     }
   });
 
   downloadBtn.addEventListener('click', () => {
+    closeMenu();
     if (!unlockedHtml) return;
     const blob = new Blob([unlockedHtml], { type: 'text/html;charset=utf-8' });
     const link = document.createElement('a');
@@ -222,6 +247,7 @@
   });
 
   shareBtn.addEventListener('click', async () => {
+    closeMenu();
     if (!unlockedHtml) return;
     await copyToClipboard(buildShareUrl());
     showShareToast();
