@@ -73,6 +73,10 @@
         text-decoration: underline;
       }
 
+      .muted {
+        color: var(--muted);
+      }
+
       .shell {
         width: min(1080px, calc(100% - 32px));
         margin: 0 auto;
@@ -745,11 +749,7 @@
   <body>
     <header class="topbar">
       <div class="shell topbar-inner">
-        <a class="brand" href="index.html"><span class="brand-mark">Z</span>Zenshare</a>
-        <div class="topbar-links">
-          <a class="topbar-link" href="index.html" data-i18n="navNewShare"></a>
-          <a class="topbar-link" href="browse.html" data-i18n="navPublic"></a>
-        </div>
+        <span class="brand"><span class="brand-mark">Z</span>Zenshare</span>
         <div class="topbar-actions">
           <div class="lang-switch" role="group" aria-label="Language">
             <button type="button" data-set-lang="zh">中</button>
@@ -782,20 +782,17 @@
           <h1>Zenshare</h1>
           <p class="hero-tagline" data-i18n="lead"></p>
           <div class="hero-actions">
-            <a class="btn primary" href="index.html">
+            <a
+              class="btn primary"
+              href="https://zenshare.zkraft.cc/"
+              target="_blank"
+              rel="noreferrer"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 3v12" />
-                <path d="m17 8-5-5-5 5" />
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="M7 17 17 7" />
+                <path d="M7 7h10v10" />
               </svg>
-              <span data-i18n="startShare"></span>
-            </a>
-            <a class="btn ghost" href="browse.html">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
-              <span data-i18n="browseShares"></span>
+              <span data-i18n="tryNow"></span>
             </a>
           </div>
           <div class="hero-stats">
@@ -953,14 +950,8 @@
     <footer class="footer">
       <div class="shell">
         <div class="footer-inner">
-          <a class="brand" href="index.html"><span class="brand-mark">Z</span>Zenshare</a>
-          <nav class="footer-links" aria-label="Footer">
-            <a href="index.html" data-i18n="navNewShare"></a>
-            <a href="browse.html" data-i18n="navPublic"></a>
-            <a href="privacy.html" data-i18n="footerPrivacy"></a>
-            <a href="terms.html" data-i18n="footerTerms"></a>
-            <a href="status.html" data-i18n="footerStatus"></a>
-          </nav>
+          <span class="brand"><span class="brand-mark">Z</span>Zenshare</span>
+          <span class="muted" data-i18n="tagline"></span>
         </div>
         <div class="footer-bottom">
           <span>© 2026 Zenshare</span>
@@ -980,6 +971,7 @@
             tagline: '静态 HTML 分享服务',
             lead: '上传一个 .html 文件，设置公开或私密，就能获得一个可访问的链接。',
             startShare: '开始分享',
+            tryNow: '马上试试',
             browseShares: '浏览公开分享',
             statMax: '单文件上限',
             statCapacity: '分享容量',
@@ -1036,6 +1028,7 @@
             tagline: 'Static HTML sharing',
             lead: 'Upload a .html file, choose public or private, and get a shareable link.',
             startShare: 'Create a share',
+            tryNow: 'Try it now',
             browseShares: 'Browse public shares',
             statMax: 'Max file size',
             statCapacity: 'Share capacity',
