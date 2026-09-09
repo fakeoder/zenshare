@@ -429,6 +429,14 @@ textarea.text-input {
   gap: 16px;
 }
 
+.options-grid > .field {
+  margin-bottom: 0;
+}
+
+#passwordField {
+  grid-column: 1 / -1;
+}
+
 .dropzone:hover,
 .dropzone.drag {
   border-color: var(--accent);
@@ -1328,6 +1336,15 @@ textarea.text-input {
 
   .options-grid {
     grid-template-columns: 1fr;
+  }
+
+  #passwordField {
+    grid-column: auto;
+    order: 1;
+  }
+
+  .retention-field {
+    order: 2;
   }
 
   .legal-panel {

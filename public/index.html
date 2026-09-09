@@ -201,30 +201,30 @@
                   data-i18n="visibilityPublicHint"
                 ></span>
               </div>
-              <label class="field">
+              <label class="field retention-field">
                 <span class="field-label">
                   <span data-i18n="expiresIn"></span>
                 </span>
                 <select id="expirySelect" class="text-input"></select>
                 <span class="field-hint" data-i18n="expiresHint"></span>
               </label>
+              <label id="passwordField" class="field" hidden>
+                <span class="field-label" data-i18n="accessPassword"></span>
+                <input
+                  id="passwordInput"
+                  class="text-input"
+                  type="password"
+                  required
+                  autocomplete="new-password"
+                  data-i18n-placeholder="passwordPlaceholder"
+                />
+                <span
+                  id="passwordHint"
+                  class="field-hint"
+                  data-i18n="passwordHint"
+                ></span>
+              </label>
             </div>
-            <label id="passwordField" class="field" hidden>
-              <span class="field-label" data-i18n="accessPassword"></span>
-              <input
-                id="passwordInput"
-                class="text-input"
-                type="password"
-                required
-                autocomplete="new-password"
-                data-i18n-placeholder="passwordPlaceholder"
-              />
-              <span
-                id="passwordHint"
-                class="field-hint"
-                data-i18n="passwordHint"
-              ></span>
-            </label>
           </section>
 
           <details class="advanced-options">
