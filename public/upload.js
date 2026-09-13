@@ -28,6 +28,7 @@
   const passwordField = $('passwordField');
   const passwordHint = $('passwordHint');
   const passwordInput = $('passwordInput');
+  const generatePwdBtn = $('generatePwdBtn');
   const submitBtn = $('submitBtn');
   const submitLabel = $('submitLabel');
   const resultPanel = $('resultPanel');
@@ -88,6 +89,14 @@
     return btoa(binary);
   }
 
+  function generateStrongPassword() {
+    const bytes = crypto.getRandomValues(new Uint8Array(24));
+    return bytesToBase64(bytes)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  }
+
   async function encryptFile(bytes, password) {
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -140,6 +149,7 @@
     });
     const isPrivate = visibility === 'private';
     passwordField.hidden = !isPrivate;
+    generatePwdBtn.hidden = !isPrivate;
     passwordInput.required = isPrivate;
     visibilityHint.textContent = t(
       isPrivate ? 'visibilityPrivateHint' : 'visibilityPublicHint'
@@ -147,7 +157,13 @@
     passwordHint.textContent = isPrivate
       ? t('passwordRequired')
       : t('passwordHint');
-    if (!isPrivate) passwordInput.value = '';
+    if (isPrivate) {
+      if (!passwordInput.value) {
+        passwordInput.value = generateStrongPassword();
+      }
+    } else {
+      passwordInput.value = '';
+    }
   }
 
   visibilityButtons.forEach((btn) => {
@@ -155,6 +171,11 @@
       visibility = btn.dataset.visibility;
       applyVisibility();
     });
+  });
+
+  generatePwdBtn.addEventListener('click', () => {
+    passwordInput.value = generateStrongPassword();
+    passwordInput.focus();
   });
 
   function clearPreview() {
@@ -331,7 +352,7 @@
 
   function withPasswordUrl() {
     return createdPassword
-      ? `${createdBaseUrl}?password=${encodeURIComponent(createdPassword)}`
+      ? `${createdBaseUrl}#password=${encodeURIComponent(createdPassword)}`
       : createdBaseUrl;
   }
 
@@ -388,9 +409,7 @@
       return;
     }
     if (visibility === 'private' && !passwordInput.value.trim()) {
-      showError(t('passwordRequired'));
-      passwordInput.focus();
-      return;
+      passwordInput.value = generateStrongPassword();
     }
 
     if (!normalized.generated) {
