@@ -103,6 +103,14 @@
     });
   }
 
+  function passwordFromUrl() {
+    const url = new URL(location.href);
+    const queryPassword = url.searchParams.get('password');
+    if (queryPassword) return queryPassword;
+    const fragment = new URLSearchParams(url.hash.replace(/^#/, ''));
+    return fragment.get('password') || '';
+  }
+
   async function copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text);
@@ -130,7 +138,7 @@
   function buildShareUrl() {
     const base = new URL(`/s/${data.alias}`, location.origin).href;
     return data.passwordProtected && unlockPassword
-      ? `${base}?password=${encodeURIComponent(unlockPassword)}`
+      ? `${base}#password=${encodeURIComponent(unlockPassword)}`
       : base;
   }
 
@@ -265,9 +273,10 @@
   } else {
     updateLockMeta();
     lockScreen.hidden = false;
-    const autoPassword = new URL(location.href).searchParams.get('password');
+    const autoPassword = passwordFromUrl();
     if (autoPassword) {
       passwordInput.value = autoPassword;
+      history.replaceState(null, '', new URL(location.href).pathname);
       handleUnlock();
     } else {
       passwordInput.focus();

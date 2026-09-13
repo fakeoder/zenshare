@@ -437,6 +437,17 @@ textarea.text-input {
   grid-column: 1 / -1;
 }
 
+.password-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-row .text-input {
+  min-width: 0;
+  flex: 1;
+}
+
 .dropzone:hover,
 .dropzone.drag {
   border-color: var(--accent);
