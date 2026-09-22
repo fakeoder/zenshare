@@ -43,6 +43,9 @@
 
   let selectedFile = null;
   let selectedPreviewHtml = '';
+  let selectedUploadHtml = '';
+  let selectedUploadSize = 0;
+  let uploadedCompressed = false;
   let visibility = 'public';
   let aliasTimer = null;
   let checkCounter = 0;
@@ -87,6 +90,90 @@
       binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
     }
     return btoa(binary);
+  }
+
+  function base64ToBytes(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('image decode failed'));
+      img.src = src;
+    });
+  }
+
+  // 把单个 data:image/*;base64 压缩为更小的 WebP/JPEG，压不掉则返回 null
+  async function compressImageDataUri(dataUri) {
+    const mimeMatch = dataUri.match(/^data:image\/([^;,]+)/);
+    const kind = mimeMatch ? mimeMatch[1].toLowerCase() : '';
+    // 只栅格化常见位图；跨域无法绘制、SVG/AVIF/GIF 等直接跳过
+    if (!['png', 'jpeg', 'jpg', 'webp', 'bmp'].includes(kind)) {
+      return null;
+    }
+    const base64Idx = dataUri.indexOf('base64,');
+    if (base64Idx < 0) return null;
+    const raw = base64ToBytes(dataUri.slice(base64Idx + 7));
+    if (!raw.byteLength) return null;
+    const url = URL.createObjectURL(
+      new Blob([raw], { type: `image/${kind}` })
+    );
+    try {
+      const img = await loadImage(url);
+      if (!img.naturalWidth || !img.naturalHeight) return null;
+      const MAX_DIM = 1400;
+      const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * scale));
+      const h = Math.max(1, Math.round(img.naturalHeight * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      const webp = canvas.toDataURL('image/webp', 0.8);
+      const out =
+        webp && webp.length < dataUri.length
+          ? webp
+          : canvas.toDataURL('image/jpeg', 0.85);
+      return out.length < dataUri.length ? out : null;
+    } catch {
+      return null;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  // 找出 HTML 中所有嵌入的 base64 图片并压缩；只压缩能压小的
+  async function compressEmbeddedImages(html) {
+    const re =
+      /data:image\/[^"'<>\s,;]+;base64,[A-Za-z0-9+/=]+/g;
+    const seen = new Set();
+    let match;
+    while ((match = re.exec(html)) !== null && seen.size < 60) {
+      seen.add(match[0]);
+    }
+    if (!seen.size) return html;
+    const replacements = await Promise.all(
+      [...seen].map(async (dataUri) => ({
+        dataUri,
+        out: await compressImageDataUri(dataUri).catch(() => null),
+      }))
+    );
+    let out = html;
+    replacements.forEach(({ dataUri, out: replacement }) => {
+      if (replacement) out = out.split(dataUri).join(replacement);
+    });
+    return out;
   }
 
   function generateStrongPassword() {
@@ -221,43 +308,61 @@
     previewWindow.focus();
   }
 
+  function clearSelection() {
+    selectedFile = null;
+    selectedPreviewHtml = '';
+    selectedUploadHtml = '';
+    selectedUploadSize = 0;
+    uploadedCompressed = false;
+    fileText.textContent = t('pickFile');
+    fileMeta.textContent = '';
+    clearPreview();
+  }
+
   async function handleFile(file) {
     if (!file) {
-      selectedFile = null;
-      selectedPreviewHtml = '';
-      fileText.textContent = t('pickFile');
-      fileMeta.textContent = '';
-      clearPreview();
+      clearSelection();
       return;
     }
     if (!/\.(html?|xhtml)$/i.test(file.name)) {
-      selectedFile = null;
-      selectedPreviewHtml = '';
-      fileText.textContent = t('pickFile');
+      clearSelection();
       fileMeta.textContent = t('fileTypeError');
-      clearPreview();
-      return;
-    }
-    if (file.size > MAX_BYTES) {
-      selectedFile = null;
-      selectedPreviewHtml = '';
-      fileText.textContent = t('pickFile');
-      fileMeta.textContent = t('fileTooLarge', { size: MAX_BYTES / 1024 });
-      clearPreview();
       return;
     }
     selectedFile = file;
     fileText.textContent = file.name;
-    fileMeta.textContent = formatBytes(file.size);
     try {
-      selectedPreviewHtml = await file.text();
+      let text = await file.text();
+      let bytes = new TextEncoder().encode(text).byteLength;
+      uploadedCompressed = false;
+      if (bytes > MAX_BYTES) {
+        text = await compressEmbeddedImages(text);
+        bytes = new TextEncoder().encode(text).byteLength;
+        uploadedCompressed = true;
+      }
+      if (bytes > MAX_BYTES) {
+        selectedFile = null;
+        selectedPreviewHtml = '';
+        selectedUploadHtml = '';
+        selectedUploadSize = 0;
+        fileText.textContent = t('pickFile');
+        fileMeta.textContent = t(
+          uploadedCompressed ? 'fileTooLargeAfterCompress' : 'fileTooLarge',
+          { size: MAX_BYTES / 1024 }
+        );
+        clearPreview();
+        return;
+      }
+      selectedUploadHtml = text;
+      selectedUploadSize = bytes;
+      selectedPreviewHtml = text;
+      fileMeta.textContent = uploadedCompressed
+        ? `${formatBytes(file.size)} → ${formatBytes(bytes)} · ${t('fileCompressed')}`
+        : formatBytes(bytes);
       savePreview(file.name, selectedPreviewHtml);
     } catch {
-      selectedFile = null;
-      selectedPreviewHtml = '';
-      fileText.textContent = t('pickFile');
+      clearSelection();
       fileMeta.textContent = t('contentEmpty');
-      clearPreview();
     }
   }
 
@@ -425,8 +530,7 @@
 
     setSubmitting(true);
     try {
-      const raw = await selectedFile.arrayBuffer();
-      const bytes = new Uint8Array(raw);
+      const bytes = new TextEncoder().encode(selectedUploadHtml);
       const payload = {
         alias: aliasInput.value.trim(),
         title:
@@ -519,7 +623,9 @@
     applyVisibility();
     if (selectedFile) {
       fileText.textContent = selectedFile.name;
-      fileMeta.textContent = formatBytes(selectedFile.size);
+      fileMeta.textContent = uploadedCompressed
+        ? `${formatBytes(selectedFile.size)} → ${formatBytes(selectedUploadSize)} · ${t('fileCompressed')}`
+        : formatBytes(selectedUploadSize);
     }
     renderAliasStatus();
     submitLabel.textContent = submitBtn.disabled
