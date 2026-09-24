@@ -9,7 +9,7 @@
       privacySections: [
         {
           heading: '我们处理哪些数据',
-          body: 'Zenshare 使用 Cloudflare Worker 和 D1 存储你上传的分享记录，包括 alias、标题、描述、作者、标签、过期时间，以及 HTML 内容。无密码分享保存原文，并会出现在公开分享目录中，可被搜索；有密码分享只保存浏览器加密后的密文，且不会出现在公开目录中。服务端不保存访问密码。',
+          body: 'Zenshare 使用 Cloudflare Worker 和 D1 存储你上传的分享记录，包括 alias、标题、描述、作者、标签、过期时间，以及文件内容（如 HTML、ICS、CSV、JSON 等文本格式）。无密码分享保存原文，并会出现在公开分享目录中，可被搜索；有密码分享只保存浏览器加密后的密文，且不会出现在公开目录中。服务端不保存访问密码。',
         },
         {
           heading: '日志与安全',
@@ -29,7 +29,7 @@
       termsSections: [
         {
           heading: '服务描述',
-          body: 'Zenshare 提供匿名静态 HTML 分享功能，仅用于分享你拥有或有权分发的静态内容。未设置密码的分享默认为公开，并会出现在公开分享目录中。',
+          body: 'Zenshare 提供匿名静态文件分享功能，仅用于分享你拥有或有权分发的静态内容。未设置密码的分享默认为公开，并会出现在公开分享目录中。',
         },
         {
           heading: '使用限制',
@@ -59,7 +59,7 @@
       privacySections: [
         {
           heading: 'Data we process',
-          body: 'Zenshare stores share records via Cloudflare Workers and D1, including alias, title, description, author, tags, expiration time, and the HTML content. Unprotected shares store the original content, appear in the public share directory, and can be searched. Password-protected shares store only browser-encrypted ciphertext and are never listed. Access passwords are never stored on the server.',
+          body: 'Zenshare stores share records via Cloudflare Workers and D1, including alias, title, description, author, tags, expiration time, and the file content (text formats such as HTML, ICS, CSV, JSON). Unprotected shares store the original content, appear in the public share directory, and can be searched. Password-protected shares store only browser-encrypted ciphertext and are never listed. Access passwords are never stored on the server.',
         },
         {
           heading: 'Logs and security',
@@ -79,7 +79,7 @@
       termsSections: [
         {
           heading: 'Service description',
-          body: 'Zenshare provides anonymous static HTML sharing for content you own or are authorized to distribute. Unprotected shares are public by default and may appear in the public share directory.',
+          body: 'Zenshare provides anonymous static file sharing for content you own or are authorized to distribute. Unprotected shares are public by default and may appear in the public share directory.',
         },
         {
           heading: 'Acceptable use',

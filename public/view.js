@@ -8,6 +8,7 @@
   const t = (key, vars) => site.t(key, vars);
 
   const frame = document.getElementById('shareFrame');
+  const contentView = document.getElementById('contentView');
   const lockScreen = document.getElementById('lockScreen');
   const lockMeta = document.getElementById('lockMeta');
   const lockError = document.getElementById('lockError');
@@ -25,7 +26,28 @@
   const shareBtn = document.getElementById('shareBtn');
   const shareToast = document.getElementById('shareToast');
 
-  let unlockedHtml = null;
+  const FILE_MIME = {
+    html: 'text/html;charset=utf-8',
+    ics: 'text/calendar;charset=utf-8',
+    csv: 'text/csv;charset=utf-8',
+    json: 'application/json;charset=utf-8',
+    md: 'text/markdown;charset=utf-8',
+    txt: 'text/plain;charset=utf-8',
+    xml: 'application/xml;charset=utf-8',
+    yaml: 'text/yaml;charset=utf-8',
+  };
+  const FILE_EXT = {
+    html: 'html',
+    ics: 'ics',
+    csv: 'csv',
+    json: 'json',
+    md: 'md',
+    txt: 'txt',
+    xml: 'xml',
+    yaml: 'yaml',
+  };
+
+  let unlockedContent = null;
   let unlocking = false;
   let unlockPassword = null;
   let shareToastTimer = null;
@@ -71,10 +93,162 @@
     return new TextDecoder('utf-8').decode(plain);
   }
 
-  function showFrame(html) {
-    unlockedHtml = html;
-    frame.srcdoc = html;
+  function fileType() {
+    return data.fileType && FILE_MIME[data.fileType] ? data.fileType : 'html';
+  }
+
+  function downloadFilename() {
+    if (data.filename) return data.filename;
+    return `${data.alias}.${FILE_EXT[fileType()] || 'txt'}`;
+  }
+
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function parseCsv(text) {
+    const rows = [];
+    let row = [];
+    let field = '';
+    let quoted = false;
+    for (let i = 0; i < text.length; i += 1) {
+      const char = text[i];
+      if (quoted) {
+        if (char === '"') {
+          if (text[i + 1] === '"') {
+            field += '"';
+            i += 1;
+          } else {
+            quoted = false;
+          }
+        } else {
+          field += char;
+        }
+      } else if (char === '"') {
+        quoted = true;
+      } else if (char === ',') {
+        row.push(field);
+        field = '';
+      } else if (char === '\n') {
+        row.push(field.replace(/\r$/, ''));
+        rows.push(row);
+        row = [];
+        field = '';
+      } else {
+        field += char;
+      }
+    }
+    if (field.length || row.length) {
+      row.push(field.replace(/\r$/, ''));
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  function renderCsv(text) {
+    const rows = parseCsv(text);
+    if (!rows.length) return '<pre class="text-view"></pre>';
+    const header = rows[0];
+    const body = rows.slice(1);
+    const thead = header
+      .map((cell) => `<th>${escapeHtml(cell)}</th>`)
+      .join('');
+    const tbody = body
+      .map(
+        (cells) =>
+          `<tr>${cells
+            .map((cell) => `<td>${escapeHtml(cell)}</td>`)
+            .join('')}</tr>`
+      )
+      .join('');
+    return `<table class="csv-view"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+  }
+
+  function unfoldIcs(text) {
+    return text.replace(/\r\n[ \t]/g, '').replace(/\r/g, '');
+  }
+
+  function icsProp(block, name) {
+    const pattern = new RegExp(`^${name}(?:;[^:]*)?:(.*)$`, 'im');
+    const match = block.match(pattern);
+    return match ? match[1].trim() : '';
+  }
+
+  function formatIcsDate(value) {
+    if (!value) return '';
+    const digits = value.replace(/[^0-9]/g, '');
+    if (digits.length < 8) return value;
+    const year = digits.slice(0, 4);
+    const month = digits.slice(4, 6);
+    const day = digits.slice(6, 8);
+    let out = `${year}-${month}-${day}`;
+    if (digits.length >= 11) {
+      out += ` ${digits.slice(9, 11)}:${digits.slice(11, 13) || '00'}`;
+    }
+    return out;
+  }
+
+  function renderIcs(text) {
+    const blocks = unfoldIcs(text).split(/BEGIN:VEVENT/i).slice(1);
+    if (!blocks.length) return `<pre class="text-view">${escapeHtml(text)}</pre>`;
+    const events = blocks.map((block) => {
+      const summary = icsProp(block, 'SUMMARY') || t('untitled');
+      const start = formatIcsDate(icsProp(block, 'DTSTART'));
+      const end = formatIcsDate(icsProp(block, 'DTEND'));
+      const location = icsProp(block, 'LOCATION');
+      const description = icsProp(block, 'DESCRIPTION');
+      return (
+        '<article class="ics-event">' +
+        `<h3>${escapeHtml(summary)}</h3>` +
+        (start || end
+          ? `<p class="ics-when">${escapeHtml(start)}${
+              end ? ` → ${escapeHtml(end)}` : ''
+            }</p>`
+          : '') +
+        (location ? `<p class="ics-where">${escapeHtml(location)}</p>` : '') +
+        (description
+          ? `<p class="ics-desc">${escapeHtml(description)}</p>`
+          : '') +
+        '</article>'
+      );
+    });
+    return `<div class="ics-view">${events.join('')}</div>`;
+  }
+
+  function renderJson(text) {
+    try {
+      const pretty = JSON.stringify(JSON.parse(text), null, 2);
+      return `<pre class="text-view">${escapeHtml(pretty)}</pre>`;
+    } catch {
+      return `<pre class="text-view">${escapeHtml(text)}</pre>`;
+    }
+  }
+
+  function showContent(text) {
+    unlockedContent = text;
+    const type = fileType();
     closeMenu();
+    if (type === 'html') {
+      contentView.hidden = true;
+      frame.hidden = false;
+      frame.srcdoc = text;
+    } else {
+      frame.removeAttribute('srcdoc');
+      frame.hidden = true;
+      contentView.hidden = false;
+      if (type === 'ics') {
+        contentView.innerHTML = renderIcs(text);
+      } else if (type === 'csv') {
+        contentView.innerHTML = renderCsv(text);
+      } else if (type === 'json') {
+        contentView.innerHTML = renderJson(text);
+      } else {
+        contentView.innerHTML = `<pre class="text-view">${escapeHtml(text)}</pre>`;
+      }
+    }
     toolbar.hidden = false;
   }
 
@@ -185,6 +359,7 @@
       metaBody.append(row);
     }
     addMetaRow(t('linkMeta'), location.href);
+    addMetaRow(t('fileTypeMeta'), fileType().toUpperCase());
     addMetaRow(t('createdMeta'), formatDate(data.createdAt));
     addMetaRow(t('expiresMeta'), data.isPermanent ? t('permanent') : formatDate(data.expiresAt));
   }
@@ -195,10 +370,10 @@
     lockError.hidden = true;
     unlockBtn.disabled = true;
     try {
-      const html = await decryptShare(passwordInput.value);
+      const text = await decryptShare(passwordInput.value);
       unlockPassword = passwordInput.value;
       lockScreen.hidden = true;
-      showFrame(html);
+      showContent(text);
     } catch {
       lockError.hidden = false;
     } finally {
@@ -243,11 +418,13 @@
 
   downloadBtn.addEventListener('click', () => {
     closeMenu();
-    if (!unlockedHtml) return;
-    const blob = new Blob([unlockedHtml], { type: 'text/html;charset=utf-8' });
+    if (unlockedContent === null) return;
+    const blob = new Blob([unlockedContent], {
+      type: FILE_MIME[fileType()] || 'application/octet-stream',
+    });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${data.alias}.html`;
+    link.download = downloadFilename();
     document.body.append(link);
     link.click();
     link.remove();
@@ -256,7 +433,7 @@
 
   shareBtn.addEventListener('click', async () => {
     closeMenu();
-    if (!unlockedHtml) return;
+    if (unlockedContent === null) return;
     await copyToClipboard(buildShareUrl());
     showShareToast();
   });
@@ -268,8 +445,8 @@
   });
 
   if (!data.passwordProtected) {
-    const html = new TextDecoder('utf-8').decode(base64ToBytes(data.content));
-    showFrame(html);
+    const text = new TextDecoder('utf-8').decode(base64ToBytes(data.content));
+    showContent(text);
   } else {
     updateLockMeta();
     lockScreen.hidden = false;

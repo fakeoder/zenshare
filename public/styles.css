@@ -367,6 +367,44 @@ textarea.text-input {
   overflow-wrap: anywhere;
 }
 
+.format-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.format-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.format-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.ztools-link {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.ztools-link:hover {
+  text-decoration: underline;
+}
+
 .advanced-options {
   margin: 4px 0 22px;
   border: 1px solid var(--line);
@@ -724,6 +762,70 @@ textarea.text-input {
   height: 100%;
   border: 0;
   background: #fff;
+}
+
+.content-view {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 20px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.text-view {
+  margin: 0;
+  font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.csv-view {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.csv-view th,
+.csv-view td {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.csv-view th {
+  background: var(--surface-soft);
+  font-weight: 650;
+}
+
+.ics-view {
+  display: grid;
+  gap: 12px;
+  max-width: 720px;
+}
+
+.ics-event {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.ics-event h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.ics-event p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ics-when {
+  color: var(--accent) !important;
+  font-weight: 600;
 }
 
 .toolbar {
@@ -1281,6 +1383,19 @@ textarea.text-input {
   color: var(--accent);
   font-size: 12px;
   overflow-wrap: anywhere;
+}
+
+.type-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
 }
 
 .share-item-desc {

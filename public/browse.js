@@ -85,6 +85,13 @@
     path.textContent = `/s/${item.alias}`;
     card.append(path);
 
+    if (item.fileType && item.fileType !== 'html') {
+      const typeBadge = document.createElement('span');
+      typeBadge.className = 'type-badge';
+      typeBadge.textContent = String(item.fileType).toUpperCase();
+      card.append(typeBadge);
+    }
+
     if (item.description) {
       const description = document.createElement('p');
       description.className = 'share-item-desc';

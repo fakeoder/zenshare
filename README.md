@@ -1,18 +1,18 @@
 # Zenshare
 
-An anonymous static HTML sharing service built on Cloudflare Workers and D1.
+An anonymous static text-file sharing service built on Cloudflare Workers and D1.
 
 ## Features
 
-- Upload a single static `.html` file up to 512KB with an optional alias and metadata.
-- Shares are accessible at `/s/<alias>`.
+- Upload a single text file up to 512KB: HTML, ICS, CSV, JSON, Markdown, TXT, XML, or YAML, with an optional alias and metadata.
+- Shares are accessible at `/s/<alias>` and render by type (HTML in a sandboxed iframe; ICS as event cards; CSV as a table; others as formatted text).
 - Alias availability is checked before upload and enforced with a unique D1 index.
 - Retention options are 1 day, 7 days (default), 30 days, or permanent. Expired records are removed by a daily UTC 20:00 cron job and lazily on read.
 - D1 keeps up to 2000 shares. When full, creation returns a "storage full" response.
 - Optional password protection: files are encrypted in the browser with PBKDF2 and AES-256-GCM; the server never stores passwords.
 - The upload page defaults to a public visibility; turning on Private requires an access password and keeps the share out of the public directory.
 - A public share browser at `/browse.html` lists every unencrypted, unexpired share with search, a permanent-only filter, and pagination. Password-protected shares never appear.
-- Reader pages render content in a sandboxed iframe with meta info, HTML download, and a one-click share that copies the HTML link, including the access password when present.
+- Reader pages render content in a sandboxed iframe (HTML) or a type-specific view, with meta info, file download (correct MIME/filename), and a one-click share that copies the link, including the access password when present.
 - A status page shows service health and share capacity usage: healthy below 80%, warning from 80%, and error at 99% or more.
 - Responsive layout, light/dark theme, and Chinese/English UI.
 
@@ -91,13 +91,15 @@ Content-Type: application/json
   "tags": ["report", "demo"],
   "expires_days": 7,
   "password_protected": true,
+  "file_type": "html",
+  "filename": "report.html",
   "content": "base64(ciphertext or plaintext)",
   "salt": "base64(16 bytes)",
   "iv": "base64(12 bytes)"
 }
 ```
 
-`alias` is optional; an empty or omitted value generates a UUID alias. `expires_days` must be `1`, `7`, `30`, or `null` for permanent retention, and defaults to 7. When `password_protected` is `true`, `salt` and `iv` are required.
+`alias` is optional; an empty or omitted value generates a UUID alias. `expires_days` must be `1`, `7`, `30`, or `null` for permanent retention, and defaults to 7. When `password_protected` is `true`, `salt` and `iv` are required. `file_type` must be one of `html`, `ics`, `csv`, `json`, `md`, `txt`, `xml`, `yaml` (defaults to `html`); `filename` is optional and used as the download name. Unencrypted `ics` content is checked for `BEGIN:VCALENDAR`.
 
 ### List Public Shares
 
@@ -111,7 +113,7 @@ Returns metadata-only items for unencrypted, unexpired shares. `q` searches alia
 
 - Password-protected shares are zero-knowledge: the key is derived in the reader's browser and the server only stores ciphertext, salt, and IV.
 - Unprotected shares are stored as plaintext and appear in the public share browser; password-protected shares are excluded from the public list.
-- Reader pages render uploaded HTML inside an iframe without `allow-same-origin`, so uploaded scripts cannot access the Zenshare origin.
+- Reader pages render uploaded HTML inside an iframe without `allow-same-origin`, so uploaded scripts cannot access the Zenshare origin. Non-HTML text types are rendered as inert DOM (escaped text/tables), never executed.
 - Permanent shares are not editable or deletable through the UI; remove them directly in D1 if needed.
 
 ## License

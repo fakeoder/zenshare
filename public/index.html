@@ -98,9 +98,14 @@
           <section class="form-step">
             <div class="step-head">
               <span class="step-number">1</span>
-              <span class="field-label" data-i18n="htmlFile"></span>
+              <span class="field-label" data-i18n="shareFile"></span>
             </div>
-            <input id="fileInput" type="file" accept=".html,.htm,text/html" hidden />
+            <input
+              id="fileInput"
+              type="file"
+              accept=".html,.htm,.xhtml,.ics,.csv,.json,.md,.markdown,.txt,.log,.xml,.yaml,.yml,text/html,text/calendar,text/csv,application/json,text/markdown,text/plain,application/xml,text/yaml"
+              hidden
+            />
             <span id="fileDrop" class="dropzone" role="button" tabindex="0">
               <svg
                 class="button-icon"
@@ -119,6 +124,24 @@
               </svg>
               <span id="fileText" data-i18n="pickFile"></span>
             </span>
+            <div id="formatChips" class="format-chips">
+              <span class="format-chip" data-type="html">HTML</span>
+              <span class="format-chip" data-type="ics">ICS</span>
+              <span class="format-chip" data-type="csv">CSV</span>
+              <span class="format-chip" data-type="json">JSON</span>
+              <span class="format-chip" data-type="md">MD</span>
+              <span class="format-chip" data-type="txt">TXT</span>
+              <span class="format-chip" data-type="xml">XML</span>
+              <span class="format-chip" data-type="yaml">YAML</span>
+            </div>
+            <a
+              id="ztoolsIcsLink"
+              class="ztools-link"
+              hidden
+              target="_blank"
+              rel="noreferrer"
+              data-i18n="createIcsTool"
+            ></a>
             <div class="file-row">
               <span id="fileMeta" class="field-hint"></span>
               <button

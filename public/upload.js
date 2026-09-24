@@ -5,6 +5,23 @@
   const MAX_BYTES = 512 * 1024;
   const ALIAS_RE = /^[a-z0-9_-]{1,40}$/;
   const PREVIEW_STORAGE_KEY = 'zenshare.preview';
+  const ZTOOLS_ICS_CREATE_URL = 'https://ztools.zkraft.cc/ics_calendar';
+  const FILE_TYPES = {
+    html: ['html', 'htm', 'xhtml'],
+    ics: ['ics'],
+    csv: ['csv'],
+    json: ['json'],
+    md: ['md', 'markdown'],
+    txt: ['txt', 'log'],
+    xml: ['xml'],
+    yaml: ['yaml', 'yml'],
+  };
+  const EXT_TO_TYPE = {};
+  Object.entries(FILE_TYPES).forEach(([type, exts]) => {
+    exts.forEach((ext) => {
+      EXT_TO_TYPE[ext] = type;
+    });
+  });
   const t = (key, vars) => site.t(key, vars);
   const $ = (id) => document.getElementById(id);
 
@@ -40,8 +57,11 @@
   const openLinkBtn = $('openLinkBtn');
   const openLinkLabel = $('openLinkLabel');
   const formError = $('formError');
+  const formatChips = Array.from(document.querySelectorAll('.format-chip'));
+  const ztoolsIcsLink = $('ztoolsIcsLink');
 
   let selectedFile = null;
+  let selectedFileType = null;
   let selectedPreviewHtml = '';
   let visibility = 'public';
   let aliasTimer = null;
@@ -128,6 +148,22 @@
     return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
   }
 
+  function inferFileType(name) {
+    const match = /\.([a-z0-9]+)$/i.exec(String(name || ''));
+    if (!match) return null;
+    return EXT_TO_TYPE[match[1].toLowerCase()] || null;
+  }
+
+  function stripExtension(name) {
+    return String(name || '').replace(/\.[^.]+$/, '');
+  }
+
+  function highlightChip(type) {
+    formatChips.forEach((chip) => {
+      chip.classList.toggle('active', Boolean(type) && chip.dataset.type === type);
+    });
+  }
+
   function showError(message) {
     formError.textContent = message;
     formError.hidden = false;
@@ -186,17 +222,17 @@
     previewBtn.hidden = true;
   }
 
-  function savePreview(name, content) {
+  function savePreview(name, content, type) {
     localStorage.setItem(
       PREVIEW_STORAGE_KEY,
-      JSON.stringify({ name, content })
+      JSON.stringify({ name, content, type: type || 'html' })
     );
     previewBtn.hidden = false;
   }
 
   function openPreview() {
     if (!selectedFile || !selectedPreviewHtml) return;
-    savePreview(selectedFile.name, selectedPreviewHtml);
+    savePreview(selectedFile.name, selectedPreviewHtml, selectedFileType);
     const isMobile =
       window.matchMedia('(max-width: 700px)').matches ||
       window.matchMedia('(pointer: coarse)').matches;
@@ -224,39 +260,50 @@
   async function handleFile(file) {
     if (!file) {
       selectedFile = null;
+      selectedFileType = null;
       selectedPreviewHtml = '';
       fileText.textContent = t('pickFile');
       fileMeta.textContent = '';
+      highlightChip(null);
       clearPreview();
       return;
     }
-    if (!/\.(html?|xhtml)$/i.test(file.name)) {
+    const fileType = inferFileType(file.name);
+    if (!fileType) {
       selectedFile = null;
+      selectedFileType = null;
       selectedPreviewHtml = '';
       fileText.textContent = t('pickFile');
       fileMeta.textContent = t('fileTypeError');
+      highlightChip(null);
       clearPreview();
       return;
     }
     if (file.size > MAX_BYTES) {
       selectedFile = null;
+      selectedFileType = null;
       selectedPreviewHtml = '';
       fileText.textContent = t('pickFile');
       fileMeta.textContent = t('fileTooLarge', { size: MAX_BYTES / 1024 });
+      highlightChip(null);
       clearPreview();
       return;
     }
     selectedFile = file;
+    selectedFileType = fileType;
     fileText.textContent = file.name;
-    fileMeta.textContent = formatBytes(file.size);
+    fileMeta.textContent = `${fileType.toUpperCase()} · ${formatBytes(file.size)}`;
+    highlightChip(fileType);
     try {
       selectedPreviewHtml = await file.text();
-      savePreview(file.name, selectedPreviewHtml);
+      savePreview(file.name, selectedPreviewHtml, fileType);
     } catch {
       selectedFile = null;
+      selectedFileType = null;
       selectedPreviewHtml = '';
       fileText.textContent = t('pickFile');
       fileMeta.textContent = t('contentEmpty');
+      highlightChip(null);
       clearPreview();
     }
   }
@@ -340,7 +387,9 @@
       alias_invalid: t('aliasInvalid'),
       alias_taken: t('aliasTaken'),
       file_too_large: t('fileTooLarge', { size: MAX_BYTES / 1024 }),
+      file_type_invalid: t('fileTypeError'),
       content_empty: t('contentEmpty'),
+      content_invalid: t('contentInvalid'),
       expires_invalid: t('expiresInvalid'),
       storage_full: t('storageFull'),
       field_too_long: t('fieldTooLong'),
@@ -429,9 +478,7 @@
       const bytes = new Uint8Array(raw);
       const payload = {
         alias: aliasInput.value.trim(),
-        title:
-          titleInput.value.trim() ||
-          selectedFile.name.replace(/\.(html?|xhtml)$/i, ''),
+        title: titleInput.value.trim() || stripExtension(selectedFile.name),
         description: descInput.value.trim(),
         author: authorInput.value.trim(),
         tags: tagsInput.value
@@ -444,6 +491,8 @@
             ? null
             : Number(expirySelect.value),
         password_protected: visibility === 'private',
+        file_type: selectedFileType || 'html',
+        filename: selectedFile.name,
       };
 
       if (visibility === 'private') {
@@ -519,7 +568,7 @@
     applyVisibility();
     if (selectedFile) {
       fileText.textContent = selectedFile.name;
-      fileMeta.textContent = formatBytes(selectedFile.size);
+      fileMeta.textContent = `${(selectedFileType || 'html').toUpperCase()} · ${formatBytes(selectedFile.size)}`;
     }
     renderAliasStatus();
     submitLabel.textContent = submitBtn.disabled
@@ -536,4 +585,8 @@
   rebuildExpiryOptions();
   applyVisibility();
   renderAliasStatus();
+  if (ZTOOLS_ICS_CREATE_URL) {
+    ztoolsIcsLink.href = ZTOOLS_ICS_CREATE_URL;
+    ztoolsIcsLink.hidden = false;
+  }
 })();

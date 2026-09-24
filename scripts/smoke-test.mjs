@@ -191,6 +191,80 @@ async function main() {
     throw new Error(`search miss should be empty: ${JSON.stringify(missed)}`);
   }
 
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "BEGIN:VEVENT",
+    "SUMMARY:Smoke Event",
+    "DTSTART:20260101T100000",
+    "DTEND:20260101T110000",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+  const icsCreateResponse = await fetch(`${BASE}/api/share`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      alias: "",
+      title: "Smoke Calendar",
+      password_protected: false,
+      file_type: "ics",
+      filename: "smoke.ics",
+      content: bytesToBase64(new TextEncoder().encode(ics)),
+      expires_days: null,
+    }),
+  });
+  const icsCreated = await icsCreateResponse.json();
+  if (!icsCreateResponse.ok) {
+    throw new Error(`ics create failed: ${JSON.stringify(icsCreated)}`);
+  }
+  const icsViewResponse = await fetch(`${BASE}${icsCreated.path}`);
+  const icsViewHtml = await icsViewResponse.text();
+  const icsMatch = icsViewHtml.match(
+    /<script type="application\/json" id="share-data">([\s\S]*?)<\/script>/
+  );
+  if (!icsMatch) {
+    throw new Error("ics share-data block missing");
+  }
+  const icsData = JSON.parse(icsMatch[1]);
+  if (icsData.fileType !== "ics" || icsData.filename !== "smoke.ics") {
+    throw new Error(`ics metadata incorrect: ${JSON.stringify(icsData)}`);
+  }
+  const icsPlain = new TextDecoder("utf-8").decode(base64ToBytes(icsData.content));
+  if (!icsPlain.includes("BEGIN:VCALENDAR")) {
+    throw new Error("ics content mismatch");
+  }
+
+  const badIcsResponse = await fetch(`${BASE}/api/share`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      alias: "smoke-bad-ics",
+      password_protected: false,
+      file_type: "ics",
+      content: bytesToBase64(new TextEncoder().encode("not a calendar")),
+      expires_days: null,
+    }),
+  });
+  if (badIcsResponse.ok) {
+    throw new Error("invalid ics content should be rejected");
+  }
+
+  const badTypeResponse = await fetch(`${BASE}/api/share`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      alias: "smoke-bad-type",
+      password_protected: false,
+      file_type: "exe",
+      content: bytesToBase64(new TextEncoder().encode("MZ")),
+      expires_days: null,
+    }),
+  });
+  if (badTypeResponse.ok) {
+    throw new Error("unsupported file_type should be rejected");
+  }
+
   console.log(
     JSON.stringify(
       {
@@ -206,6 +280,9 @@ async function main() {
         publicListOmitsContent: true,
         tagFilterMatches: true,
         searchMissEmpty: true,
+        icsRoundTrip: true,
+        icsSniffRejectsInvalid: true,
+        fileTypeWhitelistEnforced: true,
       },
       null,
       2

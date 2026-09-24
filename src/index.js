@@ -3,6 +3,16 @@ const ALIAS_RE = /^[a-z0-9_-]{1,40}$/;
 const DEFAULT_EXPIRY_DAYS = 7;
 const MAX_SHARES = 2000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const FILE_TYPES = {
+  html: { exts: ['html', 'htm', 'xhtml'], mime: 'text/html' },
+  ics: { exts: ['ics'], mime: 'text/calendar' },
+  csv: { exts: ['csv'], mime: 'text/csv' },
+  json: { exts: ['json'], mime: 'application/json' },
+  md: { exts: ['md', 'markdown'], mime: 'text/markdown' },
+  txt: { exts: ['txt', 'log'], mime: 'text/plain' },
+  xml: { exts: ['xml'], mime: 'application/xml' },
+  yaml: { exts: ['yaml', 'yml'], mime: 'text/yaml' },
+};
 const SHARES_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS shares (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,7 +27,9 @@ const SHARES_TABLE_SQL = `
     password_protected INTEGER NOT NULL DEFAULT 0,
     expires_at INTEGER,
     is_permanent INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    file_type TEXT NOT NULL DEFAULT 'html',
+    filename TEXT NOT NULL DEFAULT ''
   )
 `;
 const SHARES_INDEX_SQL = `
@@ -97,6 +109,26 @@ function parseTags(raw) {
   }
 }
 
+function normalizeFileType(raw) {
+  const value = String(raw || 'html').trim().toLowerCase();
+  return FILE_TYPES[value] ? value : 'html';
+}
+
+function cleanFilename(raw) {
+  if (raw === undefined || raw === null) return '';
+  if (typeof raw !== 'string') return { error: '文件名格式错误' };
+  const clean = raw.trim().replace(/[\\/]/g, '_').slice(0, 255);
+  return clean;
+}
+
+function sniffText(bytes) {
+  try {
+    return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+  } catch {
+    return '';
+  }
+}
+
 function simplePage(status, kind, request) {
   const acceptsZh = String(
     request?.headers?.get('accept-language') || ''
@@ -127,15 +159,36 @@ function simplePage(status, kind, request) {
 let schemaPromise = null;
 function ensureSchema(env) {
   if (!schemaPromise) {
-    schemaPromise = env.DB.batch([
-      env.DB.prepare(SHARES_TABLE_SQL),
-      env.DB.prepare(SHARES_INDEX_SQL),
-    ])
-      .then(() => true)
-      .catch((error) => {
-        schemaPromise = null;
-        throw error;
-      });
+    schemaPromise = (async () => {
+      await env.DB.batch([
+        env.DB.prepare(SHARES_TABLE_SQL),
+        env.DB.prepare(SHARES_INDEX_SQL),
+      ]);
+      const info = await env.DB.prepare('PRAGMA table_info(shares)').all();
+      const columns = new Set(
+        (info.results || []).map((row) => String(row.name))
+      );
+      const alters = [];
+      if (!columns.has('file_type')) {
+        alters.push(
+          env.DB.prepare(
+            "ALTER TABLE shares ADD COLUMN file_type TEXT NOT NULL DEFAULT 'html'"
+          )
+        );
+      }
+      if (!columns.has('filename')) {
+        alters.push(
+          env.DB.prepare(
+            "ALTER TABLE shares ADD COLUMN filename TEXT NOT NULL DEFAULT ''"
+          )
+        );
+      }
+      if (alters.length) await env.DB.batch(alters);
+      return true;
+    })().catch((error) => {
+      schemaPromise = null;
+      throw error;
+    });
   }
   return schemaPromise;
 }
@@ -250,7 +303,7 @@ async function handleListShares(url, env) {
 
   const result = await env.DB.prepare(
     `SELECT s.alias, s.title, s.description, s.author, s.tags,
-            s.is_permanent, s.expires_at, s.created_at
+            s.file_type, s.is_permanent, s.expires_at, s.created_at
      FROM shares AS s
      ${whereSql}
      ORDER BY s.created_at DESC
@@ -264,6 +317,7 @@ async function handleListShares(url, env) {
     description: row.description,
     author: row.author,
     tags: parseTags(row.tags),
+    fileType: normalizeFileType(row.file_type),
     isPermanent: row.is_permanent === 1,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
@@ -332,6 +386,29 @@ async function handleCreate(request, env) {
       413
     );
   }
+
+  let fileType = 'html';
+  if (body.file_type !== undefined && body.file_type !== null && body.file_type !== '') {
+    const requested = String(body.file_type).trim().toLowerCase();
+    if (!FILE_TYPES[requested]) {
+      return json({ error: '不支持的文件类型', code: 'file_type_invalid' }, 400);
+    }
+    fileType = requested;
+  }
+  const filename = cleanFilename(body.filename);
+  if (filename.error) {
+    return json({ error: filename.error, code: 'field_too_long' }, 400);
+  }
+  if (body.password_protected !== true && fileType === 'ics') {
+    const text = sniffText(content);
+    if (!text.includes('BEGIN:VCALENDAR')) {
+      return json(
+        { error: 'ICS 内容无效（缺少 BEGIN:VCALENDAR）', code: 'content_invalid' },
+        400
+      );
+    }
+  }
+
   await ensureSchema(env);
 
   const countRow = await env.DB.prepare('SELECT COUNT(*) AS count FROM shares')
@@ -386,8 +463,8 @@ async function handleCreate(request, env) {
     try {
       await env.DB.prepare(
         `INSERT INTO shares
-          (alias, title, description, author, tags, content, salt, iv, password_protected, expires_at, is_permanent, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (alias, title, description, author, tags, content, salt, iv, password_protected, expires_at, is_permanent, created_at, file_type, filename)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
         .bind(
           alias,
@@ -401,7 +478,9 @@ async function handleCreate(request, env) {
           passwordProtected ? 1 : 0,
           expiresAt,
           isPermanent ? 1 : 0,
-          createdAt
+          createdAt,
+          fileType,
+          filename
         )
         .run();
       return json({
@@ -444,7 +523,8 @@ async function handleView(request, env) {
 
   const row = await env.DB.prepare(
     `SELECT id, alias, title, description, author, tags, content, salt, iv,
-            password_protected, expires_at, is_permanent, created_at
+            password_protected, expires_at, is_permanent, created_at,
+            file_type, filename
      FROM shares WHERE alias = ?`
   )
     .bind(normalized.alias)
@@ -470,6 +550,8 @@ async function handleView(request, env) {
     createdAt: row.created_at,
     expiresAt: row.expires_at,
     isPermanent: row.is_permanent === 1,
+    fileType: normalizeFileType(row.file_type),
+    filename: row.filename || '',
     content: bytesToBase64(toBytes(row.content)),
   };
   if (row.password_protected === 1 && row.salt && row.iv) {
