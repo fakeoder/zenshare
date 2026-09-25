@@ -175,31 +175,6 @@
           <section class="form-step">
             <div class="step-head">
               <span class="step-number">2</span>
-              <span class="field-label">
-                <span data-i18n="customAlias"></span>
-                <span class="optional-badge" data-i18n="optionalShort"></span>
-              </span>
-            </div>
-            <label class="field">
-              <div class="input-with-status">
-                <input
-                  id="aliasInput"
-                  class="text-input"
-                  type="text"
-                  maxlength="60"
-                  autocomplete="off"
-                  spellcheck="false"
-                  data-i18n-placeholder="aliasAutoPlaceholder"
-                />
-                <span id="aliasStatus" class="alias-status" aria-live="polite"></span>
-              </div>
-              <span class="field-hint" data-i18n="aliasHint"></span>
-            </label>
-          </section>
-
-          <section class="form-step">
-            <div class="step-head">
-              <span class="step-number">3</span>
               <span class="field-label" data-i18n="visibilityRetention"></span>
             </div>
             <div class="options-grid">
@@ -298,6 +273,26 @@
               </svg>
             </summary>
             <div class="advanced-body">
+              <label class="field">
+                <span class="field-label">
+                  <span data-i18n="customAlias"></span>
+                  <span class="optional-badge" data-i18n="optionalShort"></span>
+                </span>
+                <div class="input-with-status">
+                  <input
+                    id="aliasInput"
+                    class="text-input"
+                    type="text"
+                    maxlength="60"
+                    autocomplete="off"
+                    spellcheck="false"
+                    data-i18n-placeholder="aliasAutoPlaceholder"
+                  />
+                  <span id="aliasStatus" class="alias-status" aria-live="polite"></span>
+                </div>
+                <span class="field-hint" data-i18n="aliasHint"></span>
+              </label>
+
               <div class="field-grid">
                 <label class="field">
                   <span class="field-label">
@@ -362,7 +357,11 @@
             </div>
           </details>
 
-          <div class="manage-block">
+          <section class="form-step">
+            <div class="step-head">
+              <span class="step-number">3</span>
+              <span class="field-label" data-i18n="manageableLabel"></span>
+            </div>
             <label class="check-row">
               <input id="manageableInput" type="checkbox" />
               <span class="check-copy">
@@ -374,7 +373,7 @@
               <div id="tokenStatus" class="token-status" aria-live="polite"></div>
               <span class="field-hint" data-i18n="tokenFileImportant"></span>
             </div>
-          </div>
+          </section>
 
           <button id="submitBtn" class="btn primary" type="submit">
             <svg

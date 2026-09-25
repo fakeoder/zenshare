@@ -130,6 +130,7 @@
     'aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>';
 
   let chrome = null;
+  let requiredCloseCallback = null;
 
   function syncModalClass() {
     const open = Array.from(document.querySelectorAll('.modal')).some(
@@ -140,12 +141,16 @@
 
   function closeTokenModal() {
     if (!chrome) return;
+    const cb = requiredCloseCallback;
+    requiredCloseCallback = null;
     chrome.modal.hidden = true;
     syncModalClass();
+    if (cb) cb();
   }
 
-  function openTokenModal() {
+  function openTokenModal(onClose) {
     if (!chrome) return;
+    requiredCloseCallback = typeof onClose === 'function' ? onClose : null;
     refreshChrome();
     chrome.modal.hidden = false;
     syncModalClass();

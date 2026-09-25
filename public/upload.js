@@ -428,7 +428,12 @@
     if (!manageableInput.checked) return;
     const record = tokenStore.read();
     if (!record) {
-      tokenStore.open();
+      tokenStore.open(() => {
+        if (!tokenStore.read()) {
+          manageableInput.checked = false;
+          tokenPanel.hidden = true;
+        }
+      });
       return;
     }
     renderTokenStatus();
