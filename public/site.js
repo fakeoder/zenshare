@@ -158,6 +158,7 @@
       tokenSelectFile: '选择 Token 文件',
       tokenRequired: '请先在右上角加载或生成 Token',
       tokenLabelPrompt: '给 Token 起个名字方便识别（可选，留空跳过，取消放弃生成）',
+      tokenLabelPlaceholder: '标签（可选）',
       tokenLabel: '名称',
       manageToken: '管理 Token',
       copyToken: '复制 Token',
@@ -165,7 +166,7 @@
       tokenGenerateConfirm:
         '请先保存好当前 Token 文件，否则旧 Token 管理的分享将无法再管理。确定继续吗？',
       tokenImportConfirm: '导入新 Token 将替换当前 Token，确定继续吗？',
-      tokenClearConfirm: '确定移除吗？请确保已保存 Token 文件，否则无法找回。',
+      tokenClearConfirm: '请先保存好 Token 文件，否则该 Token 管理的分享将无法再管理。确定移除吗？',
       tokenFileImportant: 'Token 文件是你管理分享的唯一方式，请妥善备份',
       tokenManageHint: '在此管理你的 Token：复制、下载、更换或移除',
       tokenNoTokenHint: '还没有加载 Token，生成一个新的或导入已有的 Token 文件',
@@ -349,6 +350,7 @@
       tokenRequired: 'Load or generate a token first (top-right key icon)',
       tokenLabelPrompt:
         'Give this token a name for easy identification (optional, leave empty to skip, cancel to abort)',
+      tokenLabelPlaceholder: 'Label (optional)',
       tokenLabel: 'Name',
       manageToken: 'Manage token',
       copyToken: 'Copy token',
@@ -357,7 +359,7 @@
         'Please save your current token file first — shares bound to it will become unmanageable. Continue?',
       tokenImportConfirm: 'Importing a new token will replace the current one. Continue?',
       tokenClearConfirm:
-        'Remove this token? Make sure you have saved the token file — it cannot be recovered.',
+        'Please save your token file first — shares bound to it will become unmanageable. Remove?',
       tokenFileImportant: 'Your token file is the only way to manage shares — keep a backup',
       tokenManageHint: 'Manage your token here: copy, download, switch, or remove',
       tokenNoTokenHint: 'No token loaded yet. Generate a new one or import an existing token file.',

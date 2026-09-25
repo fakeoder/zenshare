@@ -180,6 +180,7 @@
     chrome.created.textContent = record
       ? `${t('tokenCreatedAt')}: ${formatDate(record.createdAt)}`
       : '';
+    chrome.labelInput.value = '';
     if (!window.ZenshareSite) return;
     chrome.status.classList.toggle('loaded', hasToken);
     if (hasToken) {
@@ -239,7 +240,10 @@
             <button id="tokenManageCopy" class="btn ghost small" type="button" data-i18n="copyToken"></button>
             <button id="tokenManageDownload" class="btn ghost small" type="button" data-i18n="tokenDownload"></button>
             <button id="tokenManageImport" class="btn ghost small" type="button" data-i18n="tokenSwitch"></button>
-            <button id="tokenManageGenerate" class="btn ghost small" type="button" data-i18n="tokenGenerate"></button>
+            <div class="token-gen-row">
+              <input id="tokenManageLabelInput" class="text-input small" type="text" maxlength="60" data-i18n-placeholder="tokenLabelPlaceholder" />
+              <button id="tokenManageGenerate" class="btn ghost small" type="button" data-i18n="tokenGenerate"></button>
+            </div>
             <button id="tokenManageClear" class="btn ghost small danger" type="button" data-i18n="tokenRemove"></button>
             <input id="tokenManageFile" type="file" accept=".json,application/json" hidden />
           </div>
@@ -262,6 +266,7 @@
       copyBtn: modal.querySelector('#tokenManageCopy'),
       downloadBtn: modal.querySelector('#tokenManageDownload'),
       importBtn: modal.querySelector('#tokenManageImport'),
+      labelInput: modal.querySelector('#tokenManageLabelInput'),
       generateBtn: modal.querySelector('#tokenManageGenerate'),
       clearBtn: modal.querySelector('#tokenManageClear'),
       fileInput: modal.querySelector('#tokenManageFile'),
@@ -317,8 +322,13 @@
     });
 
     chrome.generateBtn.addEventListener('click', () => {
-      if (!window.confirm(t('tokenGenerateConfirm'))) return;
-      generateAndDownload();
+      const hasToken = Boolean(read());
+      if (hasToken && !window.confirm(t('tokenGenerateConfirm'))) return;
+      const label = chrome.labelInput.value.trim().slice(0, 60);
+      const record = create(label);
+      if (!record) return;
+      download(record);
+      save(record);
       refreshChrome();
     });
 
