@@ -1683,14 +1683,11 @@ textarea.text-input {
 }
 
 .split-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 10;
+  position: fixed;
+  z-index: 1000;
   display: flex;
   gap: 6px;
   align-items: center;
-  margin-top: 6px;
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1846,7 +1843,6 @@ textarea.text-input {
   flex-direction: column;
   width: min(100%, 560px);
   max-height: min(86vh, 760px);
-  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);

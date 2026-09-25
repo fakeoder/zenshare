@@ -348,7 +348,12 @@
       e.stopPropagation();
       const open = !chrome.labelDropdown.hidden;
       chrome.labelDropdown.hidden = open;
-      if (!open) chrome.labelInput.focus();
+      if (!open) {
+        const rect = chrome.labelToggle.getBoundingClientRect();
+        chrome.labelDropdown.style.top = `${rect.bottom + 4}px`;
+        chrome.labelDropdown.style.left = `${rect.left}px`;
+        chrome.labelInput.focus();
+      }
     });
 
     chrome.generateLabeledBtn.addEventListener('click', () => {
