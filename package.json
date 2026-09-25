@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "wrangler dev --local",
     "deploy": "wrangler deploy",
-    "db:local": "wrangler d1 execute zkraft --local --file=migrations/0001_create_shares.sql && wrangler d1 execute zkraft --local --file=migrations/0002_add_file_type.sql",
-    "db:remote": "wrangler d1 execute zkraft --remote --file=migrations/0001_create_shares.sql && wrangler d1 execute zkraft --remote --file=migrations/0002_add_file_type.sql",
+    "db:local": "wrangler d1 execute zkraft --local --file=migrations/0001_create_shares.sql ; wrangler d1 execute zkraft --local --file=migrations/0002_add_file_type.sql ; wrangler d1 execute zkraft --local --file=migrations/0003_add_manage_token.sql",
+    "db:remote": "wrangler d1 execute zkraft --remote --file=migrations/0001_create_shares.sql ; wrangler d1 execute zkraft --remote --file=migrations/0002_add_file_type.sql ; wrangler d1 execute zkraft --remote --file=migrations/0003_add_manage_token.sql",
     "smoke": "node scripts/smoke-test.mjs"
   },
   "devDependencies": {

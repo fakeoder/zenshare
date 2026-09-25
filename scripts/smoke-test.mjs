@@ -295,6 +295,241 @@ async function main() {
     throw new Error("public raw body mismatch");
   }
 
+  // ---- manage token flow ----
+  function randomToken() {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  }
+
+  const manageToken = randomToken();
+  const otherToken = randomToken();
+  const bearer = (token) => ({ authorization: `Bearer ${token}` });
+
+  const weakResponse = await fetch(`${BASE}/api/share`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      alias: "smoke-weak-token",
+      password_protected: false,
+      content: bytesToBase64(new TextEncoder().encode("weak")),
+      expires_days: null,
+      manage_token: "a".repeat(40),
+    }),
+  });
+  if (weakResponse.ok) {
+    throw new Error("low-entropy manage token should be rejected");
+  }
+
+  const managedCreate = await fetch(`${BASE}/api/share`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      alias: "",
+      title: "Managed Share",
+      author: "smoke",
+      tags: ["smoke", "managed"],
+      password_protected: false,
+      content: bytesToBase64(new TextEncoder().encode("<h1>Managed v1</h1>")),
+      expires_days: 7,
+      manage_token: manageToken,
+    }),
+  });
+  const managed = await managedCreate.json();
+  if (!managedCreate.ok) {
+    throw new Error(`managed create failed: ${JSON.stringify(managed)}`);
+  }
+
+  const plainCreate = await fetch(`${BASE}/api/share`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      alias: "",
+      title: "Unmanaged Share",
+      password_protected: false,
+      content: bytesToBase64(new TextEncoder().encode("<h1>no token</h1>")),
+      expires_days: null,
+    }),
+  });
+  if (!plainCreate.ok) throw new Error("unmanaged create failed");
+
+  const noTokenList = await fetch(`${BASE}/api/my-shares`);
+  if (noTokenList.status !== 401) {
+    throw new Error(`my-shares without token should be 401, got ${noTokenList.status}`);
+  }
+
+  const wrongTokenList = await fetch(`${BASE}/api/my-shares`, {
+    headers: bearer(otherToken),
+  });
+  const wrongTokenData = await wrongTokenList.json();
+  if (!wrongTokenList.ok || wrongTokenData.total !== 0) {
+    throw new Error(`wrong token should see an empty list: ${JSON.stringify(wrongTokenData)}`);
+  }
+
+  const myListResponse = await fetch(`${BASE}/api/my-shares?page_size=50`, {
+    headers: bearer(manageToken),
+  });
+  const myList = await myListResponse.json();
+  if (!myListResponse.ok) throw new Error(`my-shares failed: ${JSON.stringify(myList)}`);
+  const managedItem = (myList.items || []).find((item) => item.alias === managed.alias);
+  if (!managedItem) throw new Error("managed share missing from my-shares");
+  if ((myList.items || []).some((item) => item.title === "Unmanaged Share")) {
+    throw new Error("share without token must not appear in my-shares");
+  }
+  if (managedItem.passwordProtected || managedItem.fileType !== "html") {
+    throw new Error(`my-shares metadata wrong: ${JSON.stringify(managedItem)}`);
+  }
+
+  const noAuthPatch = await fetch(`${BASE}/api/share/${managed.alias}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ title: "Hacked" }),
+  });
+  if (noAuthPatch.status !== 401) {
+    throw new Error(`patch without token should be 401, got ${noAuthPatch.status}`);
+  }
+
+  const wrongPatch = await fetch(`${BASE}/api/share/${managed.alias}`, {
+    method: "PATCH",
+    headers: { ...bearer(otherToken), "content-type": "application/json" },
+    body: JSON.stringify({ title: "Hacked" }),
+  });
+  if (wrongPatch.status !== 404) {
+    throw new Error(`patch with wrong token should be 404, got ${wrongPatch.status}`);
+  }
+
+  const cryptoPatch = await fetch(`${BASE}/api/share/${managed.alias}`, {
+    method: "PATCH",
+    headers: { ...bearer(manageToken), "content-type": "application/json" },
+    body: JSON.stringify({ password_protected: true }),
+  });
+  if (cryptoPatch.ok) {
+    throw new Error("changing encryption without a new file should be rejected");
+  }
+  const cryptoPatchData = await cryptoPatch.json();
+  if (cryptoPatchData.code !== "content_required") {
+    throw new Error(`unexpected error: ${JSON.stringify(cryptoPatchData)}`);
+  }
+
+  const metaPatch = await fetch(`${BASE}/api/share/${managed.alias}`, {
+    method: "PATCH",
+    headers: { ...bearer(manageToken), "content-type": "application/json" },
+    body: JSON.stringify({
+      title: "Managed Share Updated",
+      description: "updated by smoke",
+      tags: ["smoke", "updated"],
+      expires_days: 30,
+    }),
+  });
+  const metaPatchResult = await metaPatch.json();
+  if (!metaPatch.ok || !metaPatchResult.ok) {
+    throw new Error(`meta patch failed: ${JSON.stringify(metaPatchResult)}`);
+  }
+  if (metaPatchResult.expires_at <= Date.now() + 20 * 24 * 60 * 60 * 1000) {
+    throw new Error("expiry should be extended by 30 days");
+  }
+
+  const updatedList = await (
+    await fetch(`${BASE}/api/my-shares?page_size=50`, { headers: bearer(manageToken) })
+  ).json();
+  const updatedItem = (updatedList.items || []).find((item) => item.alias === managed.alias);
+  if (
+    !updatedItem ||
+    updatedItem.title !== "Managed Share Updated" ||
+    updatedItem.description !== "updated by smoke" ||
+    !updatedItem.tags.includes("updated")
+  ) {
+    throw new Error(`metadata update not visible: ${JSON.stringify(updatedItem)}`);
+  }
+
+  const newPlain = "<h1>Managed v2</h1>";
+  const contentPatch = await fetch(`${BASE}/api/share/${managed.alias}`, {
+    method: "PATCH",
+    headers: { ...bearer(manageToken), "content-type": "application/json" },
+    body: JSON.stringify({
+      content: bytesToBase64(new TextEncoder().encode(newPlain)),
+      password_protected: false,
+      file_type: "html",
+      filename: "managed.html",
+    }),
+  });
+  if (!contentPatch.ok) {
+    throw new Error(`content patch failed: ${JSON.stringify(await contentPatch.json())}`);
+  }
+  const rawAfterUpdate = await fetch(`${BASE}/s/${managed.alias}/raw`);
+  const rawAfterBody = await rawAfterUpdate.text();
+  if (!rawAfterUpdate.ok || !rawAfterBody.includes(newPlain)) {
+    throw new Error("raw content should reflect the update");
+  }
+
+  const newSecret = "<h1>Managed secret</h1>";
+  const newPassword = "managed-pass-456";
+  const reEncrypted = await encrypt(
+    new TextEncoder().encode(newSecret),
+    newPassword
+  );
+  const encryptPatch = await fetch(`${BASE}/api/share/${managed.alias}`, {
+    method: "PATCH",
+    headers: { ...bearer(manageToken), "content-type": "application/json" },
+    body: JSON.stringify({
+      content: bytesToBase64(reEncrypted.cipher),
+      password_protected: true,
+      salt: bytesToBase64(reEncrypted.salt),
+      iv: bytesToBase64(reEncrypted.iv),
+      file_type: "html",
+      filename: "managed.html",
+    }),
+  });
+  if (!encryptPatch.ok) {
+    throw new Error(`encrypt patch failed: ${JSON.stringify(await encryptPatch.json())}`);
+  }
+  const rawEncrypted = await fetch(`${BASE}/s/${managed.alias}/raw`);
+  if (rawEncrypted.status !== 403) {
+    throw new Error(`encrypted share raw should be 403, got ${rawEncrypted.status}`);
+  }
+  const viewAfterEncrypt = await fetch(`${BASE}/s/${managed.alias}`);
+  const viewHtmlAfter = await viewAfterEncrypt.text();
+  const viewMatch = viewHtmlAfter.match(
+    /<script type="application\/json" id="share-data">([\s\S]*?)<\/script>/
+  );
+  if (!viewMatch) throw new Error("share-data block missing after encrypt");
+  const viewData = JSON.parse(viewMatch[1]);
+  const decrypted = await decrypt(
+    base64ToBytes(viewData.content),
+    base64ToBytes(viewData.salt),
+    base64ToBytes(viewData.iv),
+    newPassword
+  );
+  if (decrypted !== newSecret) throw new Error("re-encrypted content does not decrypt");
+
+  const wrongDelete = await fetch(`${BASE}/api/share/${managed.alias}`, {
+    method: "DELETE",
+    headers: bearer(otherToken),
+  });
+  if (wrongDelete.status !== 404) {
+    throw new Error(`delete with wrong token should be 404, got ${wrongDelete.status}`);
+  }
+
+  const deleteResponse = await fetch(`${BASE}/api/share/${managed.alias}`, {
+    method: "DELETE",
+    headers: bearer(manageToken),
+  });
+  if (!deleteResponse.ok) throw new Error("delete failed");
+  const viewDeleted = await fetch(`${BASE}/s/${managed.alias}`);
+  if (viewDeleted.status !== 404) {
+    throw new Error(`deleted share should 404, got ${viewDeleted.status}`);
+  }
+  const listAfterDelete = await (
+    await fetch(`${BASE}/api/my-shares?page_size=50`, { headers: bearer(manageToken) })
+  ).json();
+  if ((listAfterDelete.items || []).some((item) => item.alias === managed.alias)) {
+    throw new Error("deleted share still listed in my-shares");
+  }
+
   console.log(
     JSON.stringify(
       {
@@ -316,6 +551,15 @@ async function main() {
         rawIcsEndpoint: true,
         rawForbiddenForEncrypted: true,
         rawPublicBody: true,
+        weakTokenRejected: true,
+        mySharesRequiresToken: true,
+        mySharesScopedToToken: true,
+        mySharesMetadataUpdate: true,
+        encryptionChangeRequiresFile: true,
+        contentUpdateRoundTrip: true,
+        reEncryptRoundTrip: true,
+        deleteScopedToToken: true,
+        deleteRemovesShare: true,
       },
       null,
       2

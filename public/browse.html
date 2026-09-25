@@ -96,6 +96,80 @@
           <p class="upload-subtitle" data-i18n="browseSubtitle"></p>
         </header>
 
+        <div class="tabs" role="tablist" aria-label="Shares">
+          <button
+            type="button"
+            class="tab active"
+            role="tab"
+            aria-selected="true"
+            data-tab="public"
+            data-i18n="publicShares"
+          ></button>
+          <button
+            type="button"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            data-tab="mine"
+            data-i18n="myShares"
+          ></button>
+        </div>
+
+        <div id="mineTokenBar" class="token-bar" hidden>
+          <span id="mineTokenStatus" class="token-status" aria-live="polite"></span>
+          <div class="token-actions">
+            <button
+              id="mineTokenSwitchBtn"
+              class="btn ghost small"
+              type="button"
+              data-i18n="tokenSwitch"
+            ></button>
+            <button
+              id="mineTokenClearBtn"
+              class="btn ghost small"
+              type="button"
+              data-i18n="tokenRemove"
+            ></button>
+            <input
+              id="mineTokenFile"
+              type="file"
+              accept=".json,application/json"
+              hidden
+            />
+          </div>
+        </div>
+
+        <div id="minePrompt" class="token-prompt" hidden>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+          </svg>
+          <p data-i18n="tokenPromptText"></p>
+          <div class="token-actions">
+            <button
+              id="promptUploadBtn"
+              class="btn primary small"
+              type="button"
+              data-i18n="tokenSelectFile"
+            ></button>
+            <button
+              id="promptGenerateBtn"
+              class="btn ghost small"
+              type="button"
+              data-i18n="tokenGenerate"
+            ></button>
+          </div>
+          <span class="field-hint" data-i18n="tokenWarn"></span>
+        </div>
+
         <form id="browseForm" class="browse-filters" role="search" novalidate>
           <label class="search-field">
             <svg
@@ -185,6 +259,150 @@
       </div>
     </footer>
 
+    <div id="editModal" class="modal" hidden>
+      <div class="modal-backdrop" data-close-edit></div>
+      <div
+        class="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="editHeading"
+      >
+        <header class="modal-head">
+          <h2 id="editHeading" data-i18n="editShare"></h2>
+          <button
+            type="button"
+            class="icon-btn"
+            data-close-edit
+            data-i18n-title="close"
+            aria-label="Close"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </header>
+
+        <form id="editForm" class="modal-body">
+          <div class="field-grid">
+            <label class="field">
+              <span class="field-label" data-i18n="title"></span>
+              <input
+                id="editTitleInput"
+                class="text-input"
+                type="text"
+                maxlength="200"
+                data-i18n-placeholder="titlePlaceholder"
+              />
+            </label>
+            <label class="field">
+              <span class="field-label" data-i18n="author"></span>
+              <input
+                id="editAuthorInput"
+                class="text-input"
+                type="text"
+                maxlength="100"
+                data-i18n-placeholder="authorPlaceholder"
+              />
+            </label>
+          </div>
+
+          <label class="field">
+            <span class="field-label" data-i18n="description"></span>
+            <textarea
+              id="editDescInput"
+              class="text-input"
+              rows="3"
+              maxlength="1000"
+              data-i18n-placeholder="descriptionPlaceholder"
+            ></textarea>
+          </label>
+
+          <label class="field">
+            <span class="field-label" data-i18n="tags"></span>
+            <input
+              id="editTagsInput"
+              class="text-input"
+              type="text"
+              maxlength="200"
+              data-i18n-placeholder="tagsPlaceholder"
+            />
+          </label>
+
+          <label class="field">
+            <span class="field-label" data-i18n="expiresIn"></span>
+            <select id="editExpirySelect" class="text-input"></select>
+          </label>
+
+          <div class="field">
+            <span class="field-label" data-i18n="visibility"></span>
+            <div class="segmented" role="group">
+              <button
+                type="button"
+                data-edit-visibility="public"
+                data-i18n="visibilityPublic"
+              ></button>
+              <button
+                type="button"
+                data-edit-visibility="private"
+                data-i18n="visibilityPrivate"
+              ></button>
+            </div>
+            <span id="editVisibilityHint" class="field-hint"></span>
+          </div>
+
+          <div class="field">
+            <span class="field-label">
+              <span data-i18n="shareFile"></span>
+              <span class="optional-badge" data-i18n="optionalShort"></span>
+            </span>
+            <div class="file-row">
+              <span id="editFileText" class="field-hint"></span>
+              <button
+                id="editFileBtn"
+                class="btn ghost small"
+                type="button"
+                data-i18n="pickFile"
+              ></button>
+              <input id="editFileInput" type="file" hidden />
+            </div>
+            <span class="field-hint" data-i18n="editFileHint"></span>
+          </div>
+
+          <label id="editPasswordField" class="field" hidden>
+            <span class="field-label" data-i18n="accessPassword"></span>
+            <input
+              id="editPasswordInput"
+              class="text-input"
+              type="text"
+              maxlength="200"
+              autocomplete="off"
+              data-i18n-placeholder="passwordPlaceholder"
+            />
+          </label>
+
+          <p id="editError" class="form-error" role="alert" hidden></p>
+
+          <div class="modal-actions">
+            <button id="editCancelBtn" class="btn ghost" type="button" data-i18n="cancel"></button>
+            <button id="editSaveBtn" class="btn primary" type="submit">
+              <span id="editSaveLabel" data-i18n="saveChanges"></span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/token.js"></script>
     <script src="/site.js"></script>
     <script src="/browse.js"></script>
   </body>

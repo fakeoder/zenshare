@@ -29,12 +29,14 @@ const SHARES_TABLE_SQL = `
     is_permanent INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     file_type TEXT NOT NULL DEFAULT 'html',
-    filename TEXT NOT NULL DEFAULT ''
+    filename TEXT NOT NULL DEFAULT '',
+    manage_token_hash TEXT
   )
 `;
 const SHARES_INDEX_SQL = `
   CREATE INDEX IF NOT EXISTS idx_shares_expires ON shares(expires_at)
 `;
+const TOKEN_RE = /^[A-Za-z0-9_-]{32,128}$/;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -90,6 +92,31 @@ function toBytes(value) {
   if (value instanceof Uint8Array) return value;
   if (value instanceof ArrayBuffer) return new Uint8Array(value);
   return new Uint8Array(value);
+}
+
+function isStrongToken(token) {
+  if (!TOKEN_RE.test(token)) return false;
+  return new Set(token).size >= 16;
+}
+
+async function hashToken(token) {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(token)
+  );
+  return bytesToBase64(new Uint8Array(digest));
+}
+
+function readManageToken(request) {
+  const header = String(request.headers.get('authorization') || '').trim();
+  const match = /^Bearer\s+(\S+)$/i.exec(header);
+  return match ? match[1] : '';
+}
+
+async function manageTokenHash(request) {
+  const token = readManageToken(request);
+  if (!isStrongToken(token)) return null;
+  return hashToken(token);
 }
 
 function cleanString(value, max, label) {
@@ -183,7 +210,17 @@ function ensureSchema(env) {
           )
         );
       }
+      if (!columns.has('manage_token_hash')) {
+        alters.push(
+          env.DB.prepare(
+            'ALTER TABLE shares ADD COLUMN manage_token_hash TEXT'
+          )
+        );
+      }
       if (alters.length) await env.DB.batch(alters);
+      await env.DB.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_shares_token ON shares(manage_token_hash)'
+      ).run();
       return true;
     })().catch((error) => {
       schemaPromise = null;
@@ -243,6 +280,54 @@ async function handleStatus(env) {
   } catch {
     return json({ ok: false, status: 'error', checkedAt: Date.now() }, 503);
   }
+}
+
+function validateMeta(body) {
+  const fields = [
+    ['title', 200, '标题'],
+    ['description', 1000, '描述'],
+    ['author', 100, '作者'],
+  ];
+  const meta = {};
+  for (const [key, max, label] of fields) {
+    if (body[key] === undefined) continue;
+    const value = cleanString(body[key], max, label);
+    if (value.error) return { error: value.error, code: 'field_too_long' };
+    meta[key] = value;
+  }
+  if (body.tags !== undefined) {
+    if (!Array.isArray(body.tags)) {
+      return { error: 'tags 格式错误', code: 'tags_invalid' };
+    }
+    const tags = body.tags
+      .slice(0, 10)
+      .map((tag) => String(tag).trim())
+      .filter(Boolean);
+    if (tags.some((tag) => tag.length > 30)) {
+      return { error: '单个标签不能超过 30 字', code: 'tag_too_long' };
+    }
+    meta.tags = tags;
+  }
+  return { meta };
+}
+
+function parseExpires(body) {
+  const isPermanent = body.expires_days === null;
+  let expiresAt = null;
+  if (!isPermanent) {
+    const days =
+      body.expires_days === undefined
+        ? DEFAULT_EXPIRY_DAYS
+        : Number(body.expires_days);
+    if (!Number.isInteger(days) || ![1, 7, 30].includes(days)) {
+      return {
+        error: '保留时长需为 1 天、7 天、30 天或永久',
+        code: 'expires_invalid',
+      };
+    }
+    expiresAt = Date.now() + days * DAY_MS;
+  }
+  return { expiresAt, isPermanent };
 }
 
 function escapeLike(value) {
@@ -332,6 +417,298 @@ async function handleListShares(url, env) {
   });
 }
 
+async function requireManageRow(request, env, rawAlias) {
+  const tokenHash = await manageTokenHash(request);
+  if (!tokenHash) {
+    return {
+      response: json(
+        { error: '需要携带 manage token', code: 'token_required' },
+        401
+      ),
+    };
+  }
+  const normalized = normalizeAlias(rawAlias);
+  if (normalized.error || normalized.generated) {
+    return {
+      response: json(
+        { error: '分享不存在或无权管理', code: 'not_found' },
+        404
+      ),
+    };
+  }
+  await ensureSchema(env);
+  const row = await env.DB.prepare(
+    `SELECT id, alias, title, description, author, tags, content, salt, iv,
+            password_protected, expires_at, is_permanent, created_at,
+            file_type, filename
+     FROM shares WHERE alias = ? AND manage_token_hash = ?`
+  )
+    .bind(normalized.alias, tokenHash)
+    .first();
+  if (!row) {
+    return {
+      response: json(
+        { error: '分享不存在或无权管理', code: 'not_found' },
+        404
+      ),
+    };
+  }
+  if (!row.is_permanent && row.expires_at && row.expires_at <= Date.now()) {
+    return { response: json({ error: '分享已过期', code: 'gone' }, 410) };
+  }
+  return { row };
+}
+
+async function handleMyShares(request, url, env) {
+  const tokenHash = await manageTokenHash(request);
+  if (!tokenHash) {
+    return json(
+      { error: '需要携带 manage token', code: 'token_required' },
+      401
+    );
+  }
+  const page = boundedInt(url.searchParams.get('page'), 1, 1, Number.MAX_SAFE_INTEGER);
+  const pageSize = boundedInt(url.searchParams.get('page_size'), 20, 1, 50);
+  const query = String(url.searchParams.get('q') || '').trim().slice(0, 100);
+  const permanentOnly = ['1', 'true'].includes(
+    String(url.searchParams.get('permanent') || '').toLowerCase()
+  );
+
+  await ensureSchema(env);
+
+  const where = [
+    's.manage_token_hash = ?',
+    '(s.is_permanent = 1 OR s.expires_at > ?)',
+  ];
+  const params = [tokenHash, Date.now()];
+  if (permanentOnly) where.push('s.is_permanent = 1');
+  if (query) {
+    const like = `%${escapeLike(query)}%`;
+    where.push(
+      "(s.alias LIKE ? ESCAPE '\\' OR s.title LIKE ? ESCAPE '\\' OR " +
+        "s.description LIKE ? ESCAPE '\\' OR s.author LIKE ? ESCAPE '\\' OR " +
+        "s.tags LIKE ? ESCAPE '\\')"
+    );
+    params.push(like, like, like, like, like);
+  }
+  const whereSql = `WHERE ${where.join(' AND ')}`;
+
+  const countRow = await env.DB.prepare(
+    `SELECT COUNT(*) AS count FROM shares AS s ${whereSql}`
+  )
+    .bind(...params)
+    .first();
+  const total = countRow ? Number(countRow.count) : 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const offset = (currentPage - 1) * pageSize;
+
+  const result = await env.DB.prepare(
+    `SELECT s.alias, s.title, s.description, s.author, s.tags,
+            s.file_type, s.filename, s.password_protected,
+            s.is_permanent, s.expires_at, s.created_at
+     FROM shares AS s
+     ${whereSql}
+     ORDER BY s.created_at DESC
+     LIMIT ? OFFSET ?`
+  )
+    .bind(...params, pageSize, offset)
+    .all();
+  const items = (result.results || []).map((row) => ({
+    alias: row.alias,
+    title: row.title,
+    description: row.description,
+    author: row.author,
+    tags: parseTags(row.tags),
+    fileType: normalizeFileType(row.file_type),
+    filename: row.filename || '',
+    passwordProtected: row.password_protected === 1,
+    isPermanent: row.is_permanent === 1,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+  }));
+
+  return json({
+    items,
+    total,
+    page: currentPage,
+    pageSize,
+    totalPages,
+  });
+}
+
+async function handleUpdate(request, env, rawAlias) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: '请求格式错误', code: 'invalid_json' }, 400);
+  }
+
+  const owned = await requireManageRow(request, env, rawAlias);
+  if (owned.response) return owned.response;
+  const row = owned.row;
+
+  const validated = validateMeta(body);
+  if (validated.error) {
+    return json({ error: validated.error, code: validated.code }, 400);
+  }
+
+  const hasContent = typeof body.content === 'string' && body.content.trim() !== '';
+  if (body.content !== undefined && !hasContent) {
+    return json({ error: '内容不能为空', code: 'content_empty' }, 400);
+  }
+
+  let content = null;
+  let salt = null;
+  let iv = null;
+  let passwordProtected = row.password_protected === 1;
+  let fileType = normalizeFileType(row.file_type);
+  let filename = row.filename || '';
+
+  if (hasContent) {
+    try {
+      content = base64ToBytes(body.content);
+    } catch {
+      return json({ error: '内容编码错误', code: 'content_invalid' }, 400);
+    }
+    if (content.byteLength === 0) {
+      return json({ error: '内容不能为空', code: 'content_empty' }, 400);
+    }
+    if (content.byteLength > MAX_BYTES) {
+      return json(
+        { error: `文件不能超过 ${MAX_BYTES / 1024}KB`, code: 'file_too_large' },
+        413
+      );
+    }
+    if (body.file_type !== undefined && body.file_type !== null && body.file_type !== '') {
+      const requested = String(body.file_type).trim().toLowerCase();
+      if (!FILE_TYPES[requested]) {
+        return json({ error: '不支持的文件类型', code: 'file_type_invalid' }, 400);
+      }
+      fileType = requested;
+    }
+    const cleaned = cleanFilename(body.filename);
+    if (cleaned.error) {
+      return json({ error: cleaned.error, code: 'field_too_long' }, 400);
+    }
+    filename = cleaned;
+
+    passwordProtected = body.password_protected === true;
+    if (passwordProtected) {
+      if (typeof body.salt !== 'string' || typeof body.iv !== 'string') {
+        return json({ error: '加密参数缺失', code: 'crypto_params_missing' }, 400);
+      }
+      try {
+        salt = base64ToBytes(body.salt);
+        iv = base64ToBytes(body.iv);
+      } catch {
+        return json({ error: '加密参数格式错误', code: 'crypto_params_invalid' }, 400);
+      }
+      if (salt.byteLength < 16 || iv.byteLength !== 12) {
+        return json({ error: '加密参数无效', code: 'crypto_params_invalid' }, 400);
+      }
+    }
+    if (!passwordProtected && fileType === 'ics') {
+      const text = sniffText(content);
+      if (!text.includes('BEGIN:VCALENDAR')) {
+        return json(
+          { error: 'ICS 内容无效（缺少 BEGIN:VCALENDAR）', code: 'content_invalid' },
+          400
+        );
+      }
+    }
+  } else {
+    const wantsCrypto =
+      body.password_protected !== undefined ||
+      body.salt !== undefined ||
+      body.iv !== undefined;
+    if (wantsCrypto) {
+      const sameState =
+        body.password_protected !== undefined &&
+        (body.password_protected === true) === (row.password_protected === 1) &&
+        body.salt === undefined &&
+        body.iv === undefined;
+      if (!sameState) {
+        return json(
+          { error: '修改加密状态需要同时上传文件', code: 'content_required' },
+          400
+        );
+      }
+    }
+    if (body.file_type !== undefined || body.filename !== undefined) {
+      return json(
+        { error: '修改文件类型需要同时上传文件', code: 'file_meta_without_content' },
+        400
+      );
+    }
+  }
+
+  let expiresAt = row.expires_at;
+  let isPermanent = row.is_permanent === 1;
+  if (body.expires_days !== undefined) {
+    const parsed = parseExpires(body);
+    if (parsed.error) {
+      return json({ error: parsed.error, code: parsed.code }, 400);
+    }
+    expiresAt = parsed.expiresAt;
+    isPermanent = parsed.isPermanent;
+  }
+
+  const sets = [];
+  const params = [];
+  const assign = (column, value) => {
+    sets.push(`${column} = ?`);
+    params.push(value);
+  };
+  assign('title', validated.meta.title !== undefined ? validated.meta.title : row.title);
+  assign(
+    'description',
+    validated.meta.description !== undefined ? validated.meta.description : row.description
+  );
+  assign('author', validated.meta.author !== undefined ? validated.meta.author : row.author);
+  assign(
+    'tags',
+    JSON.stringify(
+      validated.meta.tags !== undefined ? validated.meta.tags : parseTags(row.tags)
+    )
+  );
+  if (hasContent) {
+    assign('content', content);
+    assign('salt', salt);
+    assign('iv', iv);
+    assign('password_protected', passwordProtected ? 1 : 0);
+    assign('file_type', fileType);
+    assign('filename', filename);
+  }
+  assign('expires_at', expiresAt);
+  assign('is_permanent', isPermanent ? 1 : 0);
+  params.push(row.id);
+
+  await env.DB.prepare(
+    `UPDATE shares SET ${sets.join(', ')} WHERE id = ?`
+  )
+    .bind(...params)
+    .run();
+
+  return json({
+    ok: true,
+    alias: row.alias,
+    path: `/s/${row.alias}`,
+    permanent: isPermanent,
+    expires_at: expiresAt,
+    password_protected: passwordProtected,
+  });
+}
+
+async function handleDelete(request, env, rawAlias) {
+  const owned = await requireManageRow(request, env, rawAlias);
+  if (owned.response) return owned.response;
+  const row = owned.row;
+  await env.DB.prepare('DELETE FROM shares WHERE id = ?').bind(row.id).run();
+  return json({ ok: true, alias: row.alias });
+}
+
 async function handleCreate(request, env) {
   let body;
   try {
@@ -345,27 +722,14 @@ async function handleCreate(request, env) {
     return json({ error: normalized.error }, 400);
   }
 
-  const title = cleanString(body.title, 200, '标题');
-  if (title.error) return json({ error: title.error, code: 'field_too_long' }, 400);
-  const description = cleanString(body.description, 1000, '描述');
-  if (description.error)
-    return json({ error: description.error, code: 'field_too_long' }, 400);
-  const author = cleanString(body.author, 100, '作者');
-  if (author.error) return json({ error: author.error, code: 'field_too_long' }, 400);
-
-  let tags = [];
-  if (body.tags !== undefined) {
-    if (!Array.isArray(body.tags)) {
-      return json({ error: 'tags 格式错误', code: 'tags_invalid' }, 400);
-    }
-    tags = body.tags
-      .slice(0, 10)
-      .map((tag) => String(tag).trim())
-      .filter(Boolean);
-    if (tags.some((tag) => tag.length > 30)) {
-      return json({ error: '单个标签不能超过 30 字', code: 'tag_too_long' }, 400);
-    }
+  const validated = validateMeta(body);
+  if (validated.error) {
+    return json({ error: validated.error, code: validated.code }, 400);
   }
+  const title = validated.meta.title ?? '';
+  const description = validated.meta.description ?? '';
+  const author = validated.meta.author ?? '';
+  const tags = validated.meta.tags ?? [];
 
   if (typeof body.content !== 'string' || !body.content.trim()) {
     return json({ error: '内容不能为空', code: 'content_empty' }, 400);
@@ -438,23 +802,18 @@ async function handleCreate(request, env) {
     }
   }
 
-  const isPermanent = body.expires_days === null;
-  let expiresAt = null;
-  if (!isPermanent) {
-    const days =
-      body.expires_days === undefined
-        ? DEFAULT_EXPIRY_DAYS
-        : Number(body.expires_days);
-    if (!Number.isInteger(days) || ![1, 7, 30].includes(days)) {
-      return json(
-        {
-          error: '保留时长需为 1 天、7 天、30 天或永久',
-          code: 'expires_invalid',
-        },
-        400
-      );
+  const parsedExpires = parseExpires(body);
+  if (parsedExpires.error) {
+    return json({ error: parsedExpires.error, code: parsedExpires.code }, 400);
+  }
+  const { expiresAt, isPermanent } = parsedExpires;
+
+  let manageTokenHash = null;
+  if (body.manage_token !== undefined && body.manage_token !== null && body.manage_token !== '') {
+    if (typeof body.manage_token !== 'string' || !isStrongToken(body.manage_token.trim())) {
+      return json({ error: 'manage token 格式错误', code: 'token_invalid' }, 400);
     }
-    expiresAt = Date.now() + days * DAY_MS;
+    manageTokenHash = await hashToken(body.manage_token.trim());
   }
 
   const createdAt = Date.now();
@@ -463,8 +822,8 @@ async function handleCreate(request, env) {
     try {
       await env.DB.prepare(
         `INSERT INTO shares
-          (alias, title, description, author, tags, content, salt, iv, password_protected, expires_at, is_permanent, created_at, file_type, filename)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (alias, title, description, author, tags, content, salt, iv, password_protected, expires_at, is_permanent, created_at, file_type, filename, manage_token_hash)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
         .bind(
           alias,
@@ -480,7 +839,8 @@ async function handleCreate(request, env) {
           isPermanent ? 1 : 0,
           createdAt,
           fileType,
-          filename
+          filename,
+          manageTokenHash
         )
         .run();
       return json({
@@ -689,6 +1049,24 @@ export default {
     }
     if (request.method === 'POST' && pathname === '/api/share') {
       return handleCreate(request, env);
+    }
+    if (request.method === 'GET' && pathname === '/api/my-shares') {
+      return handleMyShares(request, url, env);
+    }
+    if (
+      (request.method === 'PATCH' || request.method === 'DELETE') &&
+      pathname.startsWith('/api/share/')
+    ) {
+      const encoded = pathname.slice('/api/share/'.length);
+      let alias;
+      try {
+        alias = decodeURIComponent(encoded);
+      } catch {
+        return json({ error: '分享不存在或无权管理', code: 'not_found' }, 404);
+      }
+      return request.method === 'PATCH'
+        ? handleUpdate(request, env, alias)
+        : handleDelete(request, env, alias);
     }
     if (
       request.method === 'GET' &&

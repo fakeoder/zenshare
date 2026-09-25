@@ -362,6 +362,40 @@
             </div>
           </details>
 
+          <div class="manage-block">
+            <label class="check-row">
+              <input id="manageableInput" type="checkbox" />
+              <span class="check-copy">
+                <span class="summary-text" data-i18n="manageableLabel"></span>
+                <span class="summary-meta" data-i18n="manageableHint"></span>
+              </span>
+            </label>
+            <div id="tokenPanel" class="token-panel" hidden>
+              <div id="tokenStatus" class="token-status" aria-live="polite"></div>
+              <div class="token-actions">
+                <button
+                  id="tokenGenerateBtn"
+                  class="btn ghost small"
+                  type="button"
+                  data-i18n="tokenGenerate"
+                ></button>
+                <button
+                  id="tokenUploadBtn"
+                  class="btn ghost small"
+                  type="button"
+                  data-i18n="tokenUpload"
+                ></button>
+                <input
+                  id="tokenFileInput"
+                  type="file"
+                  accept=".json,application/json"
+                  hidden
+                />
+              </div>
+              <span class="field-hint" data-i18n="tokenWarn"></span>
+            </div>
+          </div>
+
           <button id="submitBtn" class="btn primary" type="submit">
             <svg
               class="button-icon"
@@ -494,6 +528,7 @@
       </div>
     </footer>
 
+    <script src="/token.js"></script>
     <script src="/site.js"></script>
     <script src="/upload.js"></script>
   </body>

@@ -63,6 +63,13 @@
   const formError = $('formError');
   const formatChips = Array.from(document.querySelectorAll('.format-chip'));
   const ztoolsIcsLink = $('ztoolsIcsLink');
+  const tokenStore = window.ZenshareToken;
+  const manageableInput = $('manageableInput');
+  const tokenPanel = $('tokenPanel');
+  const tokenStatus = $('tokenStatus');
+  const tokenGenerateBtn = $('tokenGenerateBtn');
+  const tokenUploadBtn = $('tokenUploadBtn');
+  const tokenFileInput = $('tokenFileInput');
 
   let selectedFile = null;
   let selectedFileType = null;
@@ -400,9 +407,56 @@
       field_too_long: t('fieldTooLong'),
       tag_too_long: t('tagTooLong'),
       tags_invalid: t('tagsInvalid'),
+      token_invalid: t('tokenInvalid'),
     };
     return map[result.code] || fallback || t('requestError');
   }
+
+  function renderTokenStatus() {
+    const record = tokenStore.read();
+    if (record) {
+      tokenStatus.textContent = t('tokenLoaded', {
+        short: tokenStore.short(record),
+      });
+      tokenStatus.classList.add('loaded');
+    } else {
+      tokenStatus.textContent = t('tokenMissing');
+      tokenStatus.classList.remove('loaded');
+    }
+  }
+
+  function applyManageable() {
+    tokenPanel.hidden = !manageableInput.checked;
+    if (!manageableInput.checked) return;
+    renderTokenStatus();
+  }
+
+  manageableInput.addEventListener('change', applyManageable);
+  document.addEventListener('zenshare:token', renderTokenStatus);
+
+  tokenGenerateBtn.addEventListener('click', () => {
+    tokenStore.generateAndDownload();
+    renderTokenStatus();
+  });
+
+  tokenUploadBtn.addEventListener('click', () => tokenFileInput.click());
+
+  tokenFileInput.addEventListener('change', async () => {
+    const file = tokenFileInput.files[0];
+    tokenFileInput.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      if (!tokenStore.importText(text)) {
+        showError(t('tokenInvalid'));
+      } else {
+        hideError();
+      }
+    } catch {
+      showError(t('tokenInvalid'));
+    }
+    renderTokenStatus();
+  });
 
   function withPasswordUrl() {
     return createdPassword
@@ -468,6 +522,17 @@
       passwordInput.value = generateStrongPassword();
     }
 
+    let manageToken = null;
+    if (manageableInput.checked) {
+      manageToken = tokenStore.read();
+      if (!manageToken) {
+        showError(t('tokenRequired'));
+        applyManageable();
+        tokenGenerateBtn.focus();
+        return;
+      }
+    }
+
     if (!normalized.generated) {
       const checkResponse = await fetch(
         `/api/alias-check?alias=${encodeURIComponent(normalized.alias)}`
@@ -510,6 +575,7 @@
       } else {
         payload.content = bytesToBase64(bytes);
       }
+      if (manageToken) payload.manage_token = manageToken.token;
 
       const response = await fetch('/api/share', {
         method: 'POST',
@@ -593,6 +659,7 @@
       fileMeta.textContent = `${(selectedFileType || 'html').toUpperCase()} · ${formatBytes(selectedFile.size)}`;
     }
     renderAliasStatus();
+    renderTokenStatus();
     submitLabel.textContent = submitBtn.disabled
       ? t('creating')
       : t('createShare');
@@ -607,6 +674,7 @@
   rebuildExpiryOptions();
   applyVisibility();
   renderAliasStatus();
+  applyManageable();
   if (ZTOOLS_ICS_CREATE_URL) {
     ztoolsIcsLink.href = ZTOOLS_ICS_CREATE_URL;
     ztoolsIcsLink.hidden = false;
