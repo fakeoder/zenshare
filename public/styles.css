@@ -1646,6 +1646,10 @@ textarea.text-input {
     width: 100%;
   }
 
+  .token-gen-row .btn.primary {
+    width: 100%;
+  }
+
   .modal-card {
     width: min(100%, 560px);
     max-height: min(90vh, 760px);
@@ -1782,8 +1786,14 @@ textarea.text-input {
 }
 
 .token-gen-row .btn {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
   white-space: nowrap;
+}
+
+.token-gen-row .btn.primary {
+  width: auto;
 }
 
 .token-bar {
