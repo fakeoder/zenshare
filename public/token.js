@@ -186,6 +186,8 @@
       ? `${t('tokenCreatedAt')}: ${formatDate(record.createdAt)}`
       : '';
     chrome.labelInput.value = '';
+    chrome.labelRow.hidden = true;
+    chrome.labelToggle.textContent = t('tokenAddLabel');
     if (!window.ZenshareSite) return;
     chrome.status.classList.toggle('loaded', hasToken);
     if (hasToken) {
@@ -245,12 +247,16 @@
             <button id="tokenManageCopy" class="btn ghost small" type="button" data-i18n="copyToken"></button>
             <button id="tokenManageDownload" class="btn ghost small" type="button" data-i18n="tokenDownload"></button>
             <button id="tokenManageImport" class="btn ghost small" type="button" data-i18n="tokenSwitch"></button>
-            <div class="token-gen-row">
-              <input id="tokenManageLabelInput" class="text-input small" type="text" maxlength="60" data-i18n-placeholder="tokenLabelPlaceholder" />
-              <button id="tokenManageGenerate" class="btn ghost small" type="button" data-i18n="tokenGenerate"></button>
-            </div>
+            <button id="tokenManageGenerate" class="btn ghost small" type="button" data-i18n="tokenGenerate"></button>
             <button id="tokenManageClear" class="btn ghost small danger" type="button" data-i18n="tokenRemove"></button>
             <input id="tokenManageFile" type="file" accept=".json,application/json" hidden />
+          </div>
+          <div id="tokenLabelExpand" class="token-label-expand">
+            <button id="tokenLabelToggle" class="link-btn" type="button" data-i18n="tokenAddLabel"></button>
+            <div id="tokenLabelRow" class="token-label-row" hidden>
+              <input id="tokenManageLabelInput" class="text-input" type="text" maxlength="60" data-i18n-placeholder="tokenLabelPlaceholder" />
+              <button id="tokenManageGenerateLabeled" class="btn ghost small" type="button" data-i18n="tokenGenerateLabeled"></button>
+            </div>
           </div>
           <span class="field-hint warn-hint" data-i18n="tokenWarn"></span>
           <div class="modal-actions">
@@ -271,8 +277,11 @@
       copyBtn: modal.querySelector('#tokenManageCopy'),
       downloadBtn: modal.querySelector('#tokenManageDownload'),
       importBtn: modal.querySelector('#tokenManageImport'),
-      labelInput: modal.querySelector('#tokenManageLabelInput'),
       generateBtn: modal.querySelector('#tokenManageGenerate'),
+      labelToggle: modal.querySelector('#tokenLabelToggle'),
+      labelRow: modal.querySelector('#tokenLabelRow'),
+      labelInput: modal.querySelector('#tokenManageLabelInput'),
+      generateLabeledBtn: modal.querySelector('#tokenManageGenerateLabeled'),
       clearBtn: modal.querySelector('#tokenManageClear'),
       fileInput: modal.querySelector('#tokenManageFile'),
       closeBtn: modal.querySelector('[data-close-token].icon-btn'),
@@ -327,6 +336,23 @@
     });
 
     chrome.generateBtn.addEventListener('click', () => {
+      const hasToken = Boolean(read());
+      if (hasToken && !window.confirm(t('tokenGenerateConfirm'))) return;
+      const record = create('');
+      if (!record) return;
+      download(record);
+      save(record);
+      refreshChrome();
+    });
+
+    chrome.labelToggle.addEventListener('click', () => {
+      const expanded = !chrome.labelRow.hidden;
+      chrome.labelRow.hidden = expanded;
+      chrome.labelToggle.textContent = t(expanded ? 'tokenAddLabel' : 'tokenHideLabel');
+      if (!expanded) chrome.labelInput.focus();
+    });
+
+    chrome.generateLabeledBtn.addEventListener('click', () => {
       const hasToken = Boolean(read());
       if (hasToken && !window.confirm(t('tokenGenerateConfirm'))) return;
       const label = chrome.labelInput.value.trim().slice(0, 60);

@@ -1655,6 +1655,35 @@ textarea.text-input {
   border-radius: var(--radius);
 }
 
+.token-label-expand {
+  margin-top: 2px;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.link-btn:hover {
+  color: var(--accent);
+}
+
+.token-label-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.token-label-row .text-input {
+  width: 160px;
+  font-size: 12px;
+}
+
 .token-bar {
   display: flex;
   align-items: center;
