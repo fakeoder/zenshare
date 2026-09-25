@@ -132,6 +132,15 @@ Authorization: Bearer <manage_token>
 
 Returns metadata-only items for the token's own unexpired shares, encrypted ones included. Missing or malformed token: `401`. Token that does not own any matching share simply gets an empty list; a wrong token addressing a specific alias gets `404`. The response never includes `content`, `salt`, `iv`, or `manage_token_hash`.
 
+### Share Content
+
+```http
+GET /api/share/<alias>/content
+Authorization: Bearer <manage_token>
+```
+
+Returns what the server stores for the token's own share: `content` (base64), `password_protected`, `file_type`, `filename`, and `salt`/`iv` when the share is encrypted. Missing token: `401`; a token that does not own the alias: `404`. Passwords never exist server-side, so this hands back ciphertext only. The bundled UI uses it to change or remove the access password without re-selecting the file: the browser decrypts with the current password, re-encrypts, and sends the result back through the update endpoint.
+
 ### Update Share
 
 ```http
@@ -150,7 +159,7 @@ Authorization: Bearer <manage_token>
 }
 ```
 
-Omitted fields stay unchanged; `alias` (the URL) can never be changed. `expires_days` accepts `1`, `7`, `30`, or `null` and is recomputed from the update time. To replace the file, send `content` together with `file_type`, `filename`, and the new encryption state (`password_protected` plus `salt`/`iv` when encrypting). Asking to change encryption without a new `content` field fails with `code=content_required`, because the server only holds ciphertext.
+Omitted fields stay unchanged; `alias` (the URL) can never be changed. `expires_days` accepts `1`, `7`, `30`, or `null` and is recomputed from the update time. To replace the file, send `content` together with `file_type`, `filename`, and the new encryption state (`password_protected` plus `salt`/`iv` when encrypting). Asking to change encryption without a new `content` field fails with `code=content_required`, because the server only holds ciphertext — to change only the access password (or add/remove it), read the current bytes from `GET /api/share/<alias>/content`, re-encrypt them in the browser, and send them back as `content`.
 
 ### Delete Share
 

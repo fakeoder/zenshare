@@ -378,8 +378,21 @@
             <span class="field-hint" data-i18n="editFileHint"></span>
           </div>
 
+          <label id="editOldPasswordField" class="field" hidden>
+            <span class="field-label" data-i18n="currentPassword"></span>
+            <input
+              id="editOldPasswordInput"
+              class="text-input"
+              type="password"
+              maxlength="200"
+              autocomplete="current-password"
+              data-i18n-placeholder="currentPasswordPlaceholder"
+            />
+            <span id="editOldPasswordHint" class="field-hint"></span>
+          </label>
+
           <label id="editPasswordField" class="field" hidden>
-            <span class="field-label" data-i18n="accessPassword"></span>
+            <span id="editPasswordLabel" class="field-label" data-i18n="accessPassword"></span>
             <input
               id="editPasswordInput"
               class="text-input"
@@ -388,6 +401,7 @@
               autocomplete="off"
               data-i18n-placeholder="passwordPlaceholder"
             />
+            <span id="editPasswordHint" class="field-hint"></span>
           </label>
 
           <p id="editError" class="form-error" role="alert" hidden></p>

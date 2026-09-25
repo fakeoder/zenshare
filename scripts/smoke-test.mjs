@@ -506,6 +506,87 @@ async function main() {
   );
   if (decrypted !== newSecret) throw new Error("re-encrypted content does not decrypt");
 
+  const noAuthContent = await fetch(`${BASE}/api/share/${managed.alias}/content`);
+  if (noAuthContent.status !== 401) {
+    throw new Error(`content without token should be 401, got ${noAuthContent.status}`);
+  }
+  const wrongContent = await fetch(`${BASE}/api/share/${managed.alias}/content`, {
+    headers: bearer(otherToken),
+  });
+  if (wrongContent.status !== 404) {
+    throw new Error(`content with wrong token should be 404, got ${wrongContent.status}`);
+  }
+  const contentResponse = await fetch(`${BASE}/api/share/${managed.alias}/content`, {
+    headers: bearer(manageToken),
+  });
+  const ownerContent = await contentResponse.json();
+  if (
+    !contentResponse.ok ||
+    !ownerContent.ok ||
+    !ownerContent.password_protected ||
+    !ownerContent.salt ||
+    !ownerContent.iv ||
+    ownerContent.filename !== "managed.html"
+  ) {
+    throw new Error(`owner content fetch failed: ${JSON.stringify(ownerContent)}`);
+  }
+  const ownerPlain = await decrypt(
+    base64ToBytes(ownerContent.content),
+    base64ToBytes(ownerContent.salt),
+    base64ToBytes(ownerContent.iv),
+    newPassword
+  );
+  if (ownerPlain !== newSecret) throw new Error("owner content does not decrypt");
+
+  const changedPassword = "managed-pass-789";
+  const reEncryptedAgain = await encrypt(
+    new TextEncoder().encode(ownerPlain),
+    changedPassword
+  );
+  const passwordPatch = await fetch(`${BASE}/api/share/${managed.alias}`, {
+    method: "PATCH",
+    headers: { ...bearer(manageToken), "content-type": "application/json" },
+    body: JSON.stringify({
+      content: bytesToBase64(reEncryptedAgain.cipher),
+      password_protected: true,
+      salt: bytesToBase64(reEncryptedAgain.salt),
+      iv: bytesToBase64(reEncryptedAgain.iv),
+      file_type: ownerContent.file_type,
+      filename: ownerContent.filename,
+    }),
+  });
+  if (!passwordPatch.ok) {
+    throw new Error(`password change patch failed: ${JSON.stringify(await passwordPatch.json())}`);
+  }
+  const viewAfterPasswordChange = await fetch(`${BASE}/s/${managed.alias}`);
+  const htmlAfterPasswordChange = await viewAfterPasswordChange.text();
+  const passwordChangeMatch = htmlAfterPasswordChange.match(
+    /<script type="application\/json" id="share-data">([\s\S]*?)<\/script>/
+  );
+  if (!passwordChangeMatch) throw new Error("share-data block missing after password change");
+  const passwordChangeData = JSON.parse(passwordChangeMatch[1]);
+  const decryptedWithNewPassword = await decrypt(
+    base64ToBytes(passwordChangeData.content),
+    base64ToBytes(passwordChangeData.salt),
+    base64ToBytes(passwordChangeData.iv),
+    changedPassword
+  );
+  if (decryptedWithNewPassword !== ownerPlain) {
+    throw new Error("content should decrypt with the new password");
+  }
+  let oldPasswordRejected = false;
+  try {
+    await decrypt(
+      base64ToBytes(passwordChangeData.content),
+      base64ToBytes(passwordChangeData.salt),
+      base64ToBytes(passwordChangeData.iv),
+      newPassword
+    );
+  } catch {
+    oldPasswordRejected = true;
+  }
+  if (!oldPasswordRejected) throw new Error("the previous password should stop working");
+
   const wrongDelete = await fetch(`${BASE}/api/share/${managed.alias}`, {
     method: "DELETE",
     headers: bearer(otherToken),
@@ -558,6 +639,8 @@ async function main() {
         encryptionChangeRequiresFile: true,
         contentUpdateRoundTrip: true,
         reEncryptRoundTrip: true,
+        ownerContentEndpoint: true,
+        passwordChangeWithoutNewFile: true,
         deleteScopedToToken: true,
         deleteRemovesShare: true,
       },

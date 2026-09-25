@@ -45,8 +45,13 @@
   const editFileText = $('editFileText');
   const editFileBtn = $('editFileBtn');
   const editFileInput = $('editFileInput');
+  const editOldPasswordField = $('editOldPasswordField');
+  const editOldPasswordInput = $('editOldPasswordInput');
+  const editOldPasswordHint = $('editOldPasswordHint');
   const editPasswordField = $('editPasswordField');
+  const editPasswordLabel = $('editPasswordLabel');
   const editPasswordInput = $('editPasswordInput');
+  const editPasswordHint = $('editPasswordHint');
   const editError = $('editError');
   const editSaveBtn = $('editSaveBtn');
   const editSaveLabel = $('editSaveLabel');
@@ -654,18 +659,27 @@
     });
 
     const encryptedNow = Boolean(editItem && editItem.passwordProtected);
-    const changing = isPrivate !== encryptedNow;
-    const needsPassword = Boolean(editFile) && isPrivate;
+    const needsPassword = isPrivate;
+    const needsOldPassword = encryptedNow && !editFile;
     editPasswordField.hidden = !needsPassword;
-    if (needsPassword && !editPasswordInput.value.trim()) {
+    editOldPasswordField.hidden = !needsOldPassword;
+    if (needsPassword && !editPasswordInput.value.trim() && (!encryptedNow || editFile)) {
       editPasswordInput.value = generatePassword();
     }
     if (!needsPassword) editPasswordInput.value = '';
+    if (!needsOldPassword) editOldPasswordInput.value = '';
 
-    let hint = '';
-    if (changing && !editFile) hint = t('editRequiresFile');
-    else if (needsPassword) hint = t('editPasswordHint');
-    editVisibilityHint.textContent = hint;
+    editVisibilityHint.textContent = t(
+      isPrivate ? 'visibilityPrivateHint' : 'visibilityPublicHint'
+    );
+    const replacingPassword = encryptedNow && !editFile;
+    editPasswordLabel.textContent = t(
+      replacingPassword ? 'newPassword' : 'accessPassword'
+    );
+    editPasswordHint.textContent = t(
+      replacingPassword ? 'editPasswordKeepHint' : 'editPasswordHint'
+    );
+    editOldPasswordHint.textContent = t('editOldPasswordHint');
   }
 
   function openEdit(item) {
@@ -678,6 +692,7 @@
     editDescInput.value = item.description || '';
     editTagsInput.value = (item.tags || []).join(', ');
     editPasswordInput.value = '';
+    editOldPasswordInput.value = '';
     editFileText.textContent = item.filename || `${item.alias}.${item.fileType}`;
     editFileInput.value = '';
     rebuildExpiryOptions();
@@ -763,6 +778,56 @@
     return { cipher: new Uint8Array(cipher), salt, iv };
   }
 
+  function base64ToBytes(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  async function decryptBytes(data, password) {
+    const salt = base64ToBytes(data.salt);
+    const iv = base64ToBytes(data.iv);
+    const cipher = base64ToBytes(data.content);
+    const baseKey = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(password),
+      'PBKDF2',
+      false,
+      ['deriveKey']
+    );
+    const key = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 100000 },
+      baseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+    const plain = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      cipher
+    );
+    return new Uint8Array(plain);
+  }
+
+  async function fetchShareContent(alias, record) {
+    const response = await fetch(
+      `/api/share/${encodeURIComponent(alias)}/content`,
+      { headers: { authorization: `Bearer ${record.token}` } }
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) {
+      throw new Error(result.code || 'content_load_failed');
+    }
+    if (typeof result.content !== 'string' || !result.content) {
+      throw new Error('content_empty');
+    }
+    return result;
+  }
+
   function bytesToBase64(bytes) {
     let binary = '';
     const chunk = 0x8000;
@@ -808,6 +873,20 @@
     }
   }
 
+  async function applyContent(payload, bytes, isPrivate) {
+    if (isPrivate) {
+      const password = editPasswordInput.value.trim() || generatePassword();
+      const encrypted = await encryptBytes(bytes, password);
+      payload.password_protected = true;
+      payload.content = bytesToBase64(encrypted.cipher);
+      payload.salt = bytesToBase64(encrypted.salt);
+      payload.iv = bytesToBase64(encrypted.iv);
+      return;
+    }
+    payload.password_protected = false;
+    payload.content = bytesToBase64(bytes);
+  }
+
   editForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!editItem || editSaving) return;
@@ -819,11 +898,8 @@
     hideEditError();
 
     const encryptedNow = Boolean(editItem.passwordProtected);
-    const changing = (editVisibility === 'private') !== encryptedNow;
-    if (!editFile && changing) {
-      showEditError(t('editRequiresFile'));
-      return;
-    }
+    const targetPrivate = editVisibility === 'private';
+    const newPassword = editPasswordInput.value.trim();
 
     const payload = {
       title: editTitleInput.value.trim(),
@@ -846,17 +922,46 @@
         const bytes = new Uint8Array(await editFile.file.arrayBuffer());
         payload.file_type = editFile.type;
         payload.filename = editFile.file.name;
-        if (editVisibility === 'private') {
-          const password = editPasswordInput.value.trim() || generatePassword();
-          const encrypted = await encryptBytes(bytes, password);
-          payload.password_protected = true;
-          payload.content = bytesToBase64(encrypted.cipher);
-          payload.salt = bytesToBase64(encrypted.salt);
-          payload.iv = bytesToBase64(encrypted.iv);
-        } else {
-          payload.password_protected = false;
-          payload.content = bytesToBase64(bytes);
+        await applyContent(payload, bytes, targetPrivate);
+      } else if (targetPrivate !== encryptedNow || (targetPrivate && newPassword)) {
+        let current;
+        try {
+          current = await fetchShareContent(editItem.alias, record);
+        } catch (error) {
+          showEditError(
+            error.message === 'token_required'
+              ? t('tokenRequired')
+              : t('editContentLoadFailed')
+          );
+          return;
         }
+
+        let bytes;
+        if (current.password_protected) {
+          if (!current.salt || !current.iv) {
+            showEditError(t('editContentLoadFailed'));
+            return;
+          }
+          const oldPassword = editOldPasswordInput.value;
+          if (!oldPassword) {
+            showEditError(t('editOldPasswordRequired'));
+            editOldPasswordInput.focus();
+            return;
+          }
+          try {
+            bytes = await decryptBytes(current, oldPassword);
+          } catch {
+            showEditError(t('editWrongPassword'));
+            editOldPasswordInput.focus();
+            return;
+          }
+        } else {
+          bytes = base64ToBytes(current.content);
+        }
+
+        payload.file_type = current.file_type;
+        payload.filename = current.filename;
+        await applyContent(payload, bytes, targetPrivate);
       }
 
       const response = await fetch(

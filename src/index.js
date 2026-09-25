@@ -537,6 +537,26 @@ async function handleMyShares(request, url, env) {
   });
 }
 
+async function handleGetContent(request, env, rawAlias) {
+  const owned = await requireManageRow(request, env, rawAlias);
+  if (owned.response) return owned.response;
+  const row = owned.row;
+
+  const payload = {
+    ok: true,
+    alias: row.alias,
+    content: bytesToBase64(toBytes(row.content)),
+    password_protected: row.password_protected === 1,
+    file_type: normalizeFileType(row.file_type),
+    filename: row.filename || '',
+  };
+  if (row.password_protected === 1 && row.salt && row.iv) {
+    payload.salt = bytesToBase64(toBytes(row.salt));
+    payload.iv = bytesToBase64(toBytes(row.iv));
+  }
+  return json(payload);
+}
+
 async function handleUpdate(request, env, rawAlias) {
   let body;
   try {
@@ -1052,6 +1072,20 @@ export default {
     }
     if (request.method === 'GET' && pathname === '/api/my-shares') {
       return handleMyShares(request, url, env);
+    }
+    if (
+      request.method === 'GET' &&
+      pathname.startsWith('/api/share/') &&
+      pathname.endsWith('/content')
+    ) {
+      const encoded = pathname.slice('/api/share/'.length, -'/content'.length);
+      let alias;
+      try {
+        alias = decodeURIComponent(encoded);
+      } catch {
+        return json({ error: '分享不存在或无权管理', code: 'not_found' }, 404);
+      }
+      return handleGetContent(request, env, alias);
     }
     if (
       (request.method === 'PATCH' || request.method === 'DELETE') &&
