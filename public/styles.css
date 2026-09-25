@@ -1608,6 +1608,33 @@ textarea.text-input {
   color: var(--accent);
 }
 
+.token-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.token-label-chip {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.token-meta-created {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .token-actions {
   display: flex;
   flex-wrap: wrap;

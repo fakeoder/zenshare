@@ -55,8 +55,19 @@
     emit();
   }
 
-  function create() {
-    return normalize({ version: 1, token: randomToken(), createdAt: Date.now() });
+  function create(label) {
+    return normalize({
+      version: 1,
+      token: randomToken(),
+      createdAt: Date.now(),
+      label,
+    });
+  }
+
+  function promptLabel() {
+    const answer = window.prompt(t('tokenLabelPrompt'), '');
+    if (answer === null) return null;
+    return answer.trim().slice(0, 60);
   }
 
   function parse(text) {
@@ -82,7 +93,9 @@
   }
 
   function generateAndDownload() {
-    const record = create();
+    const label = promptLabel();
+    if (label === null) return null;
+    const record = create(label);
     if (!record) return null;
     download(record);
     return save(record);
@@ -139,13 +152,34 @@
     chrome.closeBtn.focus();
   }
 
+  function formatDate(ms) {
+    if (!ms) return '';
+    const lang = window.ZenshareSite ? window.ZenshareSite.getLang() : 'zh';
+    return new Date(ms).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
   function refreshChrome() {
     if (!chrome) return;
     const record = read();
+    const label = record && record.label ? record.label : '';
     chrome.button.hidden = !record;
     chrome.copyBtn.hidden = !record;
     chrome.downloadBtn.hidden = !record;
     chrome.clearBtn.hidden = !record;
+    chrome.meta.hidden = !record;
+    chrome.labelChip.hidden = !label;
+    chrome.labelChip.textContent = label;
+    chrome.labelChip.title = label;
+    chrome.labelChip.setAttribute('aria-label', label ? `${t('tokenLabel')}: ${label}` : '');
+    chrome.created.textContent = record
+      ? `${t('createdMeta')}: ${formatDate(record.createdAt)}`
+      : '';
     if (!window.ZenshareSite) return;
     chrome.status.classList.toggle('loaded', Boolean(record));
     chrome.status.textContent = record
@@ -189,6 +223,10 @@
         </header>
         <div class="modal-body">
           <span id="tokenManageStatus" class="token-status" aria-live="polite"></span>
+          <div id="tokenManageMeta" class="token-meta" hidden>
+            <span id="tokenManageLabel" class="token-label-chip" hidden></span>
+            <span id="tokenManageCreated" class="token-meta-created"></span>
+          </div>
           <div class="token-actions">
             <button id="tokenManageCopy" class="btn ghost small" type="button" data-i18n="copyToken"></button>
             <button id="tokenManageDownload" class="btn ghost small" type="button" data-i18n="tokenDownload"></button>
@@ -209,6 +247,9 @@
       button,
       modal,
       status: modal.querySelector('#tokenManageStatus'),
+      meta: modal.querySelector('#tokenManageMeta'),
+      labelChip: modal.querySelector('#tokenManageLabel'),
+      created: modal.querySelector('#tokenManageCreated'),
       copyBtn: modal.querySelector('#tokenManageCopy'),
       downloadBtn: modal.querySelector('#tokenManageDownload'),
       importBtn: modal.querySelector('#tokenManageImport'),

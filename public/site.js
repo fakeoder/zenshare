@@ -155,6 +155,8 @@
       tokenPromptText: '请选择你的 token 文件，以加载可管理的分享',
       tokenSelectFile: '选择 token 文件',
       tokenRequired: '请先加载或生成 manage token',
+      tokenLabelPrompt: '可选：给这个 token 起个标签，方便识别（留空则不设置，取消则放弃生成）',
+      tokenLabel: '标签',
       manageToken: '管理 Token',
       copyToken: '复制 token',
       tokenDownload: '下载 token',
@@ -335,6 +337,9 @@
       tokenPromptText: 'Select your token file to load the shares you manage',
       tokenSelectFile: 'Select token file',
       tokenRequired: 'Load or generate a manage token first',
+      tokenLabelPrompt:
+        'Optional: give this token a label so you can recognise it (leave empty to skip, cancel to abort)',
+      tokenLabel: 'Label',
       manageToken: 'Manage token',
       copyToken: 'Copy token',
       tokenDownload: 'Download token',
