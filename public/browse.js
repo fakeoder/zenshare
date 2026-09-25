@@ -23,12 +23,7 @@
   const pageInfo = $('pageInfo');
   const mineTokenBar = $('mineTokenBar');
   const mineTokenStatus = $('mineTokenStatus');
-  const mineTokenSwitchBtn = $('mineTokenSwitchBtn');
-  const mineTokenClearBtn = $('mineTokenClearBtn');
-  const mineTokenFile = $('mineTokenFile');
   const minePrompt = $('minePrompt');
-  const promptUploadBtn = $('promptUploadBtn');
-  const promptGenerateBtn = $('promptGenerateBtn');
 
   const editModal = $('editModal');
   const editForm = $('editForm');
@@ -172,9 +167,10 @@
     minePrompt.hidden = true;
     form.hidden = false;
     mineTokenBar.hidden = false;
-    mineTokenStatus.textContent = t('tokenLoaded', {
-      short: tokenStore.short(record),
-    });
+    const label = record.label;
+    mineTokenStatus.textContent = label
+      ? t('tokenLoadedLabel', { label })
+      : t('tokenLoaded', { short: tokenStore.short(record) });
     mineTokenStatus.classList.add('loaded');
   }
 
@@ -569,39 +565,6 @@
     if (state.page >= state.totalPages) return;
     state.page += 1;
     load();
-  });
-
-  function importTokenFile(file, onDone) {
-    if (!file) return;
-    file
-      .text()
-      .then((text) => {
-        const record = tokenStore.importText(text);
-        if (record && onDone) onDone(true);
-        if (!record) {
-          errorEl.textContent = t('tokenInvalid');
-          errorEl.hidden = false;
-        }
-      })
-      .catch(() => {
-        errorEl.textContent = t('tokenInvalid');
-        errorEl.hidden = false;
-      });
-  }
-
-  promptUploadBtn.addEventListener('click', () => mineTokenFile.click());
-  mineTokenSwitchBtn.addEventListener('click', () => mineTokenFile.click());
-  mineTokenFile.addEventListener('change', () => {
-    const file = mineTokenFile.files[0];
-    mineTokenFile.value = '';
-    importTokenFile(file);
-  });
-  promptGenerateBtn.addEventListener('click', () => {
-    tokenStore.generateAndDownload();
-    errorEl.hidden = true;
-  });
-  mineTokenClearBtn.addEventListener('click', () => {
-    tokenStore.clear();
   });
 
   document.addEventListener('zenshare:token', () => {

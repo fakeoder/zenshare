@@ -67,9 +67,6 @@
   const manageableInput = $('manageableInput');
   const tokenPanel = $('tokenPanel');
   const tokenStatus = $('tokenStatus');
-  const tokenGenerateBtn = $('tokenGenerateBtn');
-  const tokenUploadBtn = $('tokenUploadBtn');
-  const tokenFileInput = $('tokenFileInput');
 
   let selectedFile = null;
   let selectedFileType = null;
@@ -415,9 +412,10 @@
   function renderTokenStatus() {
     const record = tokenStore.read();
     if (record) {
-      tokenStatus.textContent = t('tokenLoaded', {
-        short: tokenStore.short(record),
-      });
+      const label = record.label;
+      tokenStatus.textContent = label
+        ? t('tokenLoadedLabel', { label })
+        : t('tokenLoaded', { short: tokenStore.short(record) });
       tokenStatus.classList.add('loaded');
     } else {
       tokenStatus.textContent = t('tokenMissing');
@@ -433,30 +431,6 @@
 
   manageableInput.addEventListener('change', applyManageable);
   document.addEventListener('zenshare:token', renderTokenStatus);
-
-  tokenGenerateBtn.addEventListener('click', () => {
-    tokenStore.generateAndDownload();
-    renderTokenStatus();
-  });
-
-  tokenUploadBtn.addEventListener('click', () => tokenFileInput.click());
-
-  tokenFileInput.addEventListener('change', async () => {
-    const file = tokenFileInput.files[0];
-    tokenFileInput.value = '';
-    if (!file) return;
-    try {
-      const text = await file.text();
-      if (!tokenStore.importText(text)) {
-        showError(t('tokenInvalid'));
-      } else {
-        hideError();
-      }
-    } catch {
-      showError(t('tokenInvalid'));
-    }
-    renderTokenStatus();
-  });
 
   function withPasswordUrl() {
     return createdPassword
@@ -528,7 +502,8 @@
       if (!manageToken) {
         showError(t('tokenRequired'));
         applyManageable();
-        tokenGenerateBtn.focus();
+        const keyBtn = document.getElementById('tokenKeyBtn');
+        if (keyBtn) keyBtn.focus();
         return;
       }
     }

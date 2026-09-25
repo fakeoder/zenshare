@@ -168,23 +168,30 @@
     if (!chrome) return;
     const record = read();
     const label = record && record.label ? record.label : '';
-    chrome.button.hidden = !record;
-    chrome.copyBtn.hidden = !record;
-    chrome.downloadBtn.hidden = !record;
-    chrome.clearBtn.hidden = !record;
-    chrome.meta.hidden = !record;
+    const hasToken = Boolean(record);
+    chrome.copyBtn.hidden = !hasToken;
+    chrome.downloadBtn.hidden = !hasToken;
+    chrome.clearBtn.hidden = !hasToken;
+    chrome.meta.hidden = !hasToken;
     chrome.labelChip.hidden = !label;
     chrome.labelChip.textContent = label;
     chrome.labelChip.title = label;
     chrome.labelChip.setAttribute('aria-label', label ? `${t('tokenLabel')}: ${label}` : '');
     chrome.created.textContent = record
-      ? `${t('createdMeta')}: ${formatDate(record.createdAt)}`
+      ? `${t('tokenCreatedAt')}: ${formatDate(record.createdAt)}`
       : '';
     if (!window.ZenshareSite) return;
-    chrome.status.classList.toggle('loaded', Boolean(record));
-    chrome.status.textContent = record
-      ? t('tokenLoaded', { short: short(record) })
-      : t('tokenMissing');
+    chrome.status.classList.toggle('loaded', hasToken);
+    if (hasToken) {
+      chrome.status.textContent = label
+        ? t('tokenLoadedLabel', { label })
+        : t('tokenLoaded', { short: short(record) });
+    } else {
+      chrome.status.textContent = t('tokenMissing');
+    }
+    chrome.hint.textContent = hasToken
+      ? t('tokenFileImportant')
+      : t('tokenNoTokenHint');
   }
 
   function feedback(button, labelKey) {
@@ -223,6 +230,7 @@
         </header>
         <div class="modal-body">
           <span id="tokenManageStatus" class="token-status" aria-live="polite"></span>
+          <span id="tokenManageHint" class="field-hint"></span>
           <div id="tokenManageMeta" class="token-meta" hidden>
             <span id="tokenManageLabel" class="token-label-chip" hidden></span>
             <span id="tokenManageCreated" class="token-meta-created"></span>
@@ -235,7 +243,7 @@
             <button id="tokenManageClear" class="btn ghost small danger" type="button" data-i18n="tokenRemove"></button>
             <input id="tokenManageFile" type="file" accept=".json,application/json" hidden />
           </div>
-          <span class="field-hint" data-i18n="tokenWarn"></span>
+          <span class="field-hint warn-hint" data-i18n="tokenWarn"></span>
           <div class="modal-actions">
             <button class="btn ghost" type="button" data-close-token data-i18n="close"></button>
           </div>
@@ -247,6 +255,7 @@
       button,
       modal,
       status: modal.querySelector('#tokenManageStatus'),
+      hint: modal.querySelector('#tokenManageHint'),
       meta: modal.querySelector('#tokenManageMeta'),
       labelChip: modal.querySelector('#tokenManageLabel'),
       created: modal.querySelector('#tokenManageCreated'),
