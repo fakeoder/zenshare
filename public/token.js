@@ -129,6 +129,23 @@
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
     'aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>';
 
+  const DOWNLOAD_ICON =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ' +
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
+    'aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />' +
+    '<polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>';
+
+  const UPLOAD_ICON =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ' +
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
+    'aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />' +
+    '<polyline points="17 8 12 3 7 8" /><line x1="12" x2="12" y1="3" y2="15" /></svg>';
+
+  const TRASH_ICON =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ' +
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
+    'aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>';
+
   let chrome = null;
   let requiredCloseCallback = null;
 
@@ -174,9 +191,7 @@
     const record = read();
     const label = record && record.label ? record.label : '';
     const hasToken = Boolean(record);
-    chrome.copyBtn.hidden = !hasToken;
-    chrome.downloadBtn.hidden = !hasToken;
-    chrome.clearBtn.hidden = !hasToken;
+    chrome.statusActions.hidden = !hasToken;
     chrome.meta.hidden = !hasToken;
     chrome.labelChip.hidden = !label;
     chrome.labelChip.textContent = label;
@@ -186,7 +201,6 @@
       ? `${t('tokenCreatedAt')}: ${formatDate(record.createdAt)}`
       : '';
     chrome.labelInput.value = '';
-    chrome.labelDropdown.hidden = true;
     if (!window.ZenshareSite) return;
     chrome.status.classList.toggle('loaded', hasToken);
     if (hasToken) {
@@ -199,15 +213,6 @@
     chrome.hint.textContent = hasToken
       ? t('tokenFileImportant')
       : t('tokenNoTokenHint');
-  }
-
-  function feedback(button, labelKey) {
-    const original = button.dataset.label || button.textContent;
-    button.dataset.label = original;
-    button.textContent = t(labelKey);
-    setTimeout(() => {
-      button.textContent = button.dataset.label;
-    }, 1600);
   }
 
   function mountChrome() {
@@ -236,31 +241,28 @@
           <button type="button" class="icon-btn" data-close-token data-i18n-title="close" aria-label="Close">${CLOSE_ICON}</button>
         </header>
         <div class="modal-body">
-          <span id="tokenManageStatus" class="token-status" aria-live="polite"></span>
-          <span id="tokenManageHint" class="field-hint"></span>
+          <div class="token-status-row">
+            <span id="tokenManageStatus" class="token-status" aria-live="polite"></span>
+            <span id="tokenStatusActions" class="token-status-actions" hidden>
+              <button id="tokenManageDownload" class="icon-btn small" type="button" data-i18n-title="tokenDownload">${DOWNLOAD_ICON}</button>
+              <button id="tokenManageImport" class="icon-btn small" type="button" data-i18n-title="tokenSwitch">${UPLOAD_ICON}</button>
+              <button id="tokenManageClear" class="icon-btn small danger" type="button" data-i18n-title="tokenRemove">${TRASH_ICON}</button>
+            </span>
+          </div>
           <div id="tokenManageMeta" class="token-meta" hidden>
             <span id="tokenManageLabel" class="token-label-chip" hidden></span>
             <span id="tokenManageCreated" class="token-meta-created"></span>
           </div>
-          <div class="token-actions">
-            <button id="tokenManageCopy" class="btn ghost small" type="button" data-i18n="copyToken"></button>
-            <button id="tokenManageDownload" class="btn ghost small" type="button" data-i18n="tokenDownload"></button>
-            <button id="tokenManageImport" class="btn ghost small" type="button" data-i18n="tokenSwitch"></button>
-            <div class="split-btn">
-              <button id="tokenManageGenerate" class="btn ghost small" type="button" data-i18n="tokenGenerate"></button>
-              <button id="tokenLabelToggle" class="btn ghost small split-btn-toggle" type="button" aria-label="Options">&#9662;</button>
-            </div>
-            <button id="tokenManageClear" class="btn ghost small danger" type="button" data-i18n="tokenRemove"></button>
-            <input id="tokenManageFile" type="file" accept=".json,application/json" hidden />
+          <span id="tokenManageHint" class="field-hint"></span>
+          <div class="token-gen-row">
+            <input id="tokenManageLabelInput" class="text-input" type="text" maxlength="60" data-i18n-placeholder="tokenLabelPlaceholder" />
+            <button id="tokenManageGenerate" class="btn primary small" type="button" data-i18n="tokenGenerate"></button>
           </div>
           <span class="field-hint warn-hint" data-i18n="tokenWarn"></span>
+          <input id="tokenManageFile" type="file" accept=".json,application/json" hidden />
           <div class="modal-actions">
             <button class="btn ghost" type="button" data-close-token data-i18n="close"></button>
           </div>
-        </div>
-        <div id="tokenLabelDropdown" class="split-dropdown" hidden>
-          <input id="tokenManageLabelInput" class="text-input" type="text" maxlength="60" data-i18n-placeholder="tokenLabelPlaceholder" />
-          <button id="tokenManageGenerateLabeled" class="btn primary small" type="button" data-i18n="tokenConfirm"></button>
         </div>
       </div>`;
     document.body.append(modal);
@@ -269,18 +271,15 @@
       button,
       modal,
       status: modal.querySelector('#tokenManageStatus'),
+      statusActions: modal.querySelector('#tokenStatusActions'),
       hint: modal.querySelector('#tokenManageHint'),
       meta: modal.querySelector('#tokenManageMeta'),
       labelChip: modal.querySelector('#tokenManageLabel'),
       created: modal.querySelector('#tokenManageCreated'),
-      copyBtn: modal.querySelector('#tokenManageCopy'),
       downloadBtn: modal.querySelector('#tokenManageDownload'),
       importBtn: modal.querySelector('#tokenManageImport'),
       generateBtn: modal.querySelector('#tokenManageGenerate'),
-      labelToggle: modal.querySelector('#tokenLabelToggle'),
-      labelDropdown: modal.querySelector('#tokenLabelDropdown'),
       labelInput: modal.querySelector('#tokenManageLabelInput'),
-      generateLabeledBtn: modal.querySelector('#tokenManageGenerateLabeled'),
       clearBtn: modal.querySelector('#tokenManageClear'),
       fileInput: modal.querySelector('#tokenManageFile'),
       closeBtn: modal.querySelector('[data-close-token].icon-btn'),
@@ -288,24 +287,6 @@
 
     modal.querySelectorAll('[data-close-token]').forEach((el) => {
       el.addEventListener('click', closeTokenModal);
-    });
-
-    chrome.copyBtn.addEventListener('click', async () => {
-      const record = read();
-      if (!record) return closeTokenModal();
-      try {
-        await navigator.clipboard.writeText(record.token);
-      } catch {
-        const temp = document.createElement('textarea');
-        temp.value = record.token;
-        temp.style.position = 'fixed';
-        temp.style.opacity = '0';
-        document.body.append(temp);
-        temp.select();
-        document.execCommand('copy');
-        temp.remove();
-      }
-      feedback(chrome.copyBtn, 'copied');
     });
 
     chrome.downloadBtn.addEventListener('click', () => {
@@ -337,52 +318,19 @@
     chrome.generateBtn.addEventListener('click', () => {
       const hasToken = Boolean(read());
       if (hasToken && !window.confirm(t('tokenGenerateConfirm'))) return;
-      const record = create('');
-      if (!record) return;
-      download(record);
-      save(record);
-      refreshChrome();
-    });
-
-    chrome.labelToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const open = !chrome.labelDropdown.hidden;
-      chrome.labelDropdown.hidden = open;
-      if (!open) {
-        const btnRect = chrome.labelToggle.getBoundingClientRect();
-        const cardRect = chrome.modal.querySelector('.modal-card').getBoundingClientRect();
-        chrome.labelDropdown.style.top = `${btnRect.bottom - cardRect.top + 4}px`;
-        chrome.labelDropdown.style.left = `${btnRect.left - cardRect.left}px`;
-        chrome.labelInput.focus();
-      }
-    });
-
-    chrome.generateLabeledBtn.addEventListener('click', () => {
-      const hasToken = Boolean(read());
-      if (hasToken && !window.confirm(t('tokenGenerateConfirm'))) return;
       const label = chrome.labelInput.value.trim().slice(0, 60);
       const record = create(label);
       if (!record) return;
       download(record);
       save(record);
-      chrome.labelDropdown.hidden = true;
       refreshChrome();
     });
 
     chrome.labelInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        chrome.generateLabeledBtn.click();
+        chrome.generateBtn.click();
       }
-      if (e.key === 'Escape') {
-        chrome.labelDropdown.hidden = true;
-      }
-    });
-
-    chrome.labelDropdown.addEventListener('click', (e) => e.stopPropagation());
-
-    document.addEventListener('click', () => {
-      if (chrome) chrome.labelDropdown.hidden = true;
     });
 
     chrome.clearBtn.addEventListener('click', () => {
