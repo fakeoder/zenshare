@@ -1377,6 +1377,25 @@ textarea.text-input {
   overflow-wrap: anywhere;
 }
 
+.share-item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.share-item-head .share-item-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.share-item-date {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .share-item-path {
   display: block;
   margin-top: 2px;
@@ -1484,6 +1503,10 @@ textarea.text-input {
   .browse-panel {
     padding: 24px 20px;
   }
+
+  .result-actions {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1557,6 +1580,84 @@ textarea.text-input {
   .footer-inner {
     flex-direction: column;
     gap: 18px;
+  }
+
+  .browse-shell {
+    width: min(100% - 24px, 920px);
+    margin: 24px auto 48px;
+  }
+
+  .browse-panel {
+    padding: 20px 16px;
+  }
+
+  .browse-head {
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+  }
+
+  .tabs {
+    margin-bottom: 12px;
+  }
+
+  .tab {
+    height: 30px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .share-item {
+    padding: 12px 14px;
+  }
+
+  .share-item-title {
+    font-size: 15px;
+  }
+
+  .share-item-head {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .share-item-head .share-item-date {
+    margin-left: 0;
+  }
+
+  .share-item-meta {
+    gap: 4px 10px;
+  }
+
+  .manage-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .manage-head .share-item-date {
+    margin-left: 0;
+  }
+
+  .token-gen-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .token-gen-row .btn {
+    width: 100%;
+  }
+
+  .modal-card {
+    width: min(100%, 560px);
+    max-height: min(90vh, 760px);
+  }
+
+  .modal-body {
+    padding: 14px;
+  }
+
+  .browse-filters {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
@@ -1675,13 +1776,14 @@ textarea.text-input {
 }
 
 .token-gen-row .text-input {
-  flex: 1;
+  flex: 1 1 0%;
   min-width: 0;
   font-size: 13px;
 }
 
 .token-gen-row .btn {
-  flex: none;
+  flex: 0 1 auto;
+  white-space: nowrap;
 }
 
 .token-bar {
@@ -1783,7 +1885,11 @@ textarea.text-input {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px 10px;
+}
+
+.manage-head .share-item-date {
+  margin-left: auto;
 }
 
 .share-item-actions {
@@ -1877,5 +1983,24 @@ body.modal-open {
   .token-bar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .browse-shell {
+    margin-top: 16px;
+  }
+
+  .share-item-meta {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .page-title {
+    margin-top: 20px;
+  }
+
+  .lang-switch button {
+    min-width: 32px;
+    height: 26px;
+    font-size: 12px;
   }
 }

@@ -235,10 +235,17 @@
     card.className = 'share-item';
     card.href = `/s/${encodeURIComponent(item.alias)}`;
 
+    const head = document.createElement('div');
+    head.className = 'share-item-head';
     const title = document.createElement('h2');
     title.className = 'share-item-title';
-    title.textContent = item.title || t('untitled');
-    card.append(title);
+    title.textContent = item.title || item.alias || t('untitled');
+    head.append(title);
+    const dateSpan = document.createElement('span');
+    dateSpan.className = 'share-item-date';
+    dateSpan.textContent = formatDate(item.createdAt);
+    head.append(dateSpan);
+    card.append(head);
 
     const path = document.createElement('span');
     path.className = 'share-item-path';
@@ -293,13 +300,17 @@
 
     const head = document.createElement('div');
     head.className = 'manage-head';
-    const title = document.createElement('a');
-    title.className = 'share-item-title';
-    title.href = `/s/${encodeURIComponent(item.alias)}`;
-    title.target = '_blank';
-    title.rel = 'noopener';
-    title.textContent = item.title || t('untitled');
-    head.append(title);
+    const titleLink = document.createElement('a');
+    titleLink.className = 'share-item-title';
+    titleLink.href = `/s/${encodeURIComponent(item.alias)}`;
+    titleLink.target = '_blank';
+    titleLink.rel = 'noopener';
+    titleLink.textContent = item.title || item.alias || t('untitled');
+    head.append(titleLink);
+    const dateSpan = document.createElement('span');
+    dateSpan.className = 'share-item-date';
+    dateSpan.textContent = formatDate(item.createdAt);
+    head.append(dateSpan);
     const badges = document.createElement('span');
     badges.className = 'share-item-badges';
     appendBadges(badges, item);
