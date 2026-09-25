@@ -296,7 +296,10 @@
       download(record);
     });
 
-    chrome.importBtn.addEventListener('click', () => chrome.fileInput.click());
+    chrome.importBtn.addEventListener('click', () => {
+      if (read() && !window.confirm(t('tokenImportConfirm'))) return;
+      chrome.fileInput.click();
+    });
     chrome.fileInput.addEventListener('change', () => {
       const file = chrome.fileInput.files[0];
       chrome.fileInput.value = '';

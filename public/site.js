@@ -164,6 +164,7 @@
       tokenDownload: '下载 Token 文件',
       tokenGenerateConfirm:
         '请先保存好当前 Token 文件，否则旧 Token 管理的分享将无法再管理。确定继续吗？',
+      tokenImportConfirm: '导入新 Token 将替换当前 Token，确定继续吗？',
       tokenClearConfirm: '确定移除吗？请确保已保存 Token 文件，否则无法找回。',
       tokenFileImportant: 'Token 文件是你管理分享的唯一方式，请妥善备份',
       tokenManageHint: '在此管理你的 Token：复制、下载、更换或移除',
@@ -354,6 +355,7 @@
       tokenDownload: 'Download token file',
       tokenGenerateConfirm:
         'Please save your current token file first — shares bound to it will become unmanageable. Continue?',
+      tokenImportConfirm: 'Importing a new token will replace the current one. Continue?',
       tokenClearConfirm:
         'Remove this token? Make sure you have saved the token file — it cannot be recovered.',
       tokenFileImportant: 'Your token file is the only way to manage shares — keep a backup',
