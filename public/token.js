@@ -186,8 +186,7 @@
       ? `${t('tokenCreatedAt')}: ${formatDate(record.createdAt)}`
       : '';
     chrome.labelInput.value = '';
-    chrome.labelRow.hidden = true;
-    chrome.labelToggle.textContent = t('tokenAddLabel');
+    chrome.labelDropdown.hidden = true;
     if (!window.ZenshareSite) return;
     chrome.status.classList.toggle('loaded', hasToken);
     if (hasToken) {
@@ -247,16 +246,16 @@
             <button id="tokenManageCopy" class="btn ghost small" type="button" data-i18n="copyToken"></button>
             <button id="tokenManageDownload" class="btn ghost small" type="button" data-i18n="tokenDownload"></button>
             <button id="tokenManageImport" class="btn ghost small" type="button" data-i18n="tokenSwitch"></button>
-            <button id="tokenManageGenerate" class="btn ghost small" type="button" data-i18n="tokenGenerate"></button>
+            <div class="split-btn">
+              <button id="tokenManageGenerate" class="btn ghost small" type="button" data-i18n="tokenGenerate"></button>
+              <button id="tokenLabelToggle" class="btn ghost small split-btn-toggle" type="button" aria-label="Options">&#9662;</button>
+              <div id="tokenLabelDropdown" class="split-dropdown" hidden>
+                <input id="tokenManageLabelInput" class="text-input" type="text" maxlength="60" data-i18n-placeholder="tokenLabelPlaceholder" />
+                <button id="tokenManageGenerateLabeled" class="btn primary small" type="button" data-i18n="tokenConfirm"></button>
+              </div>
+            </div>
             <button id="tokenManageClear" class="btn ghost small danger" type="button" data-i18n="tokenRemove"></button>
             <input id="tokenManageFile" type="file" accept=".json,application/json" hidden />
-          </div>
-          <div id="tokenLabelExpand" class="token-label-expand">
-            <button id="tokenLabelToggle" class="link-btn" type="button" data-i18n="tokenAddLabel"></button>
-            <div id="tokenLabelRow" class="token-label-row" hidden>
-              <input id="tokenManageLabelInput" class="text-input" type="text" maxlength="60" data-i18n-placeholder="tokenLabelPlaceholder" />
-              <button id="tokenManageGenerateLabeled" class="btn ghost small" type="button" data-i18n="tokenGenerateLabeled"></button>
-            </div>
           </div>
           <span class="field-hint warn-hint" data-i18n="tokenWarn"></span>
           <div class="modal-actions">
@@ -279,7 +278,7 @@
       importBtn: modal.querySelector('#tokenManageImport'),
       generateBtn: modal.querySelector('#tokenManageGenerate'),
       labelToggle: modal.querySelector('#tokenLabelToggle'),
-      labelRow: modal.querySelector('#tokenLabelRow'),
+      labelDropdown: modal.querySelector('#tokenLabelDropdown'),
       labelInput: modal.querySelector('#tokenManageLabelInput'),
       generateLabeledBtn: modal.querySelector('#tokenManageGenerateLabeled'),
       clearBtn: modal.querySelector('#tokenManageClear'),
@@ -345,11 +344,11 @@
       refreshChrome();
     });
 
-    chrome.labelToggle.addEventListener('click', () => {
-      const expanded = !chrome.labelRow.hidden;
-      chrome.labelRow.hidden = expanded;
-      chrome.labelToggle.textContent = t(expanded ? 'tokenAddLabel' : 'tokenHideLabel');
-      if (!expanded) chrome.labelInput.focus();
+    chrome.labelToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = !chrome.labelDropdown.hidden;
+      chrome.labelDropdown.hidden = open;
+      if (!open) chrome.labelInput.focus();
     });
 
     chrome.generateLabeledBtn.addEventListener('click', () => {
@@ -360,7 +359,24 @@
       if (!record) return;
       download(record);
       save(record);
+      chrome.labelDropdown.hidden = true;
       refreshChrome();
+    });
+
+    chrome.labelInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        chrome.generateLabeledBtn.click();
+      }
+      if (e.key === 'Escape') {
+        chrome.labelDropdown.hidden = true;
+      }
+    });
+
+    chrome.labelDropdown.addEventListener('click', (e) => e.stopPropagation());
+
+    document.addEventListener('click', () => {
+      if (chrome) chrome.labelDropdown.hidden = true;
     });
 
     chrome.clearBtn.addEventListener('click', () => {

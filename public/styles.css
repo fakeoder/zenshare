@@ -1655,32 +1655,37 @@ textarea.text-input {
   border-radius: var(--radius);
 }
 
-.token-label-expand {
-  margin-top: 2px;
+.split-btn {
+  position: relative;
+  display: inline-flex;
 }
 
-.link-btn {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 12px;
-  cursor: pointer;
-  padding: 0;
+.split-btn-toggle {
+  padding-left: 4px;
+  padding-right: 4px;
+  min-width: 0;
+  margin-left: -1px;
+  border-left: 1px solid var(--line);
 }
 
-.link-btn:hover {
-  color: var(--accent);
-}
-
-.token-label-row {
+.split-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
   display: flex;
   gap: 6px;
   align-items: center;
   margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.token-label-row .text-input {
-  width: 160px;
+.split-dropdown .text-input {
+  width: 140px;
   font-size: 12px;
 }
 
