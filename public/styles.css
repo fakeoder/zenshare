@@ -1484,15 +1484,6 @@ textarea.text-input {
   .browse-panel {
     padding: 24px 20px;
   }
-
-  .browse-filters {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .segmented {
-    align-self: center;
-  }
 }
 
 @media (max-width: 600px) {

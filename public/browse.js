@@ -9,7 +9,6 @@
 
   const form = $('browseForm');
   const searchInput = $('searchInput');
-  const filterButtons = Array.from(document.querySelectorAll('[data-filter]'));
   const tabs = Array.from(document.querySelectorAll('[data-tab]'));
   const pageTitle = document.querySelector('.browse-head .page-title');
   const pageSubtitle = document.querySelector('.browse-head .upload-subtitle');
@@ -45,9 +44,6 @@
   const editFileText = $('editFileText');
   const editFileBtn = $('editFileBtn');
   const editFileInput = $('editFileInput');
-  const editOldPasswordField = $('editOldPasswordField');
-  const editOldPasswordInput = $('editOldPasswordInput');
-  const editOldPasswordHint = $('editOldPasswordHint');
   const editPasswordField = $('editPasswordField');
   const editPasswordLabel = $('editPasswordLabel');
   const editPasswordInput = $('editPasswordInput');
@@ -78,7 +74,6 @@
   const state = {
     tab: 'public',
     q: '',
-    permanent: false,
     page: 1,
     total: 0,
     totalPages: 1,
@@ -128,7 +123,6 @@
     const params = new URLSearchParams();
     if (state.tab !== 'public') params.set('tab', state.tab);
     if (state.q) params.set('q', state.q);
-    if (state.permanent) params.set('permanent', '1');
     if (state.page > 1) params.set('page', String(state.page));
     const query = params.toString();
     history.replaceState(null, '', query ? `?${query}` : location.pathname);
@@ -137,14 +131,9 @@
   function readInitialState() {
     const params = new URLSearchParams(location.search);
     state.q = (params.get('q') || '').trim();
-    state.permanent = params.get('permanent') === '1';
     state.page = Math.max(1, Number(params.get('page')) || 1);
     state.tab = params.get('tab') === 'mine' ? 'mine' : 'public';
     searchInput.value = state.q;
-    filterButtons.forEach((btn) => {
-      const active = (btn.dataset.filter === 'permanent') === state.permanent;
-      btn.classList.toggle('active', active);
-    });
     tabs.forEach((btn) => {
       const active = btn.dataset.tab === state.tab;
       btn.classList.toggle('active', active);
@@ -392,7 +381,11 @@
   }
 
   function renderPublic(items) {
-    list.replaceChildren(...items.map(renderItem));
+    list.replaceChildren(
+      ...items.map((item) =>
+        item.manageable ? renderMineItem(item) : renderItem(item)
+      )
+    );
     if (!state.total) {
       meta.textContent = '';
       empty.hidden = false;
@@ -439,8 +432,12 @@
       page_size: String(PAGE_SIZE),
     });
     if (state.q) params.set('q', state.q);
-    if (state.permanent) params.set('permanent', '1');
     return params;
+  }
+
+  function authHeaders() {
+    const record = tokenStore.read();
+    return record ? { authorization: `Bearer ${record.token}` } : {};
   }
 
   async function loadPublic() {
@@ -453,7 +450,9 @@
     nextBtn.disabled = true;
 
     try {
-      const response = await fetch(`/api/shares?${queryBase()}`);
+      const response = await fetch(`/api/shares?${queryBase()}`, {
+        headers: authHeaders(),
+      });
       if (!response.ok) throw new Error('browse failed');
       const data = await response.json();
       if (id !== requestId) return;
@@ -560,19 +559,6 @@
     onSearch();
   });
 
-  filterButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const permanent = btn.dataset.filter === 'permanent';
-      if (permanent === state.permanent) return;
-      state.permanent = permanent;
-      state.page = 1;
-      filterButtons.forEach((other) => {
-        other.classList.toggle('active', other === btn);
-      });
-      load();
-    });
-  });
-
   prevBtn.addEventListener('click', () => {
     if (state.page <= 1) return;
     state.page -= 1;
@@ -619,11 +605,10 @@
   });
 
   document.addEventListener('zenshare:token', () => {
-    if (state.tab !== 'mine') return;
     state.page = 1;
     state.total = 0;
     renderTokenChrome();
-    loadMine();
+    load();
   });
 
   function rebuildExpiryOptions() {
@@ -685,14 +670,11 @@
 
     const encryptedNow = Boolean(editItem && editItem.passwordProtected);
     const needsPassword = isPrivate;
-    const needsOldPassword = encryptedNow && !editFile;
     editPasswordField.hidden = !needsPassword;
-    editOldPasswordField.hidden = !needsOldPassword;
     if (needsPassword && !editPasswordInput.value.trim() && (!encryptedNow || editFile)) {
       editPasswordInput.value = generatePassword();
     }
     if (!needsPassword) editPasswordInput.value = '';
-    if (!needsOldPassword) editOldPasswordInput.value = '';
 
     editVisibilityHint.textContent = t(
       isPrivate ? 'visibilityPrivateHint' : 'visibilityPublicHint'
@@ -704,7 +686,6 @@
     editPasswordHint.textContent = t(
       replacingPassword ? 'editPasswordKeepHint' : 'editPasswordHint'
     );
-    editOldPasswordHint.textContent = t('editOldPasswordHint');
   }
 
   function openEdit(item) {
@@ -717,7 +698,6 @@
     editDescInput.value = item.description || '';
     editTagsInput.value = (item.tags || []).join(', ');
     editPasswordInput.value = '';
-    editOldPasswordInput.value = '';
     editFileText.textContent = item.filename || `${item.alias}.${item.fileType}`;
     editFileInput.value = '';
     rebuildExpiryOptions();
@@ -925,7 +905,7 @@
         return;
       }
       errorEl.hidden = true;
-      loadMine();
+      load();
     } catch {
       errorEl.textContent = t('deleteFailed');
       errorEl.hidden = false;
@@ -1005,37 +985,18 @@
             showEditError(t('editContentLoadFailed'));
             return;
           }
-          const candidates = [];
-          if (current.password_wrap) {
-            try {
-              candidates.push(
-                await window.ZenshareWrap.unwrap(
-                  current.password_wrap,
-                  record.token
-                )
-              );
-            } catch {
-              // a broken wrap falls back to the typed password below
-            }
-          }
-          const typed = editOldPasswordInput.value;
-          if (typed && !candidates.includes(typed)) candidates.push(typed);
-          if (!candidates.length) {
-            showEditError(t('editOldPasswordRequired'));
-            editOldPasswordInput.focus();
+          if (!current.password_wrap) {
+            showEditError(t('passwordNotRecoverable'));
             return;
           }
-          for (const candidate of candidates) {
-            try {
-              bytes = await decryptBytes(current, candidate);
-              break;
-            } catch {
-              // try the next candidate
-            }
-          }
-          if (!bytes) {
-            showEditError(t('editWrongPassword'));
-            editOldPasswordInput.focus();
+          try {
+            const currentPassword = await window.ZenshareWrap.unwrap(
+              current.password_wrap,
+              record.token
+            );
+            bytes = await decryptBytes(current, currentPassword);
+          } catch {
+            showEditError(t('editDecryptFailed'));
             return;
           }
         } else {
@@ -1064,7 +1025,7 @@
         return;
       }
       closeEdit();
-      loadMine();
+      load();
     } catch {
       showEditError(t('editFailed'));
     } finally {
@@ -1076,8 +1037,7 @@
     syncChrome();
     rebuildExpiryOptions();
     renderEditControls();
-    if (state.tab === 'mine' && tokenStore.read()) loadMine();
-    else if (state.tab === 'public') loadPublic();
+    load();
     if (!editModal.hidden) {
       editSaveLabel.textContent = editSaving ? t('saving') : t('saveChanges');
     }

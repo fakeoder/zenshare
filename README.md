@@ -13,7 +13,8 @@ An anonymous static text-file sharing service built on Cloudflare Workers and D1
 - Optional management: a share created as *manageable* is bound to a manage token — 256 bits of browser-generated randomness whose SHA-256 hash is the only thing stored server-side. The token is downloaded as `zenshare-token.json`, re-imported by uploading that file, and cached in `localStorage`.
 - A "My shares" tab on the share browser lists everything under the loaded token (including password-protected shares) and supports editing metadata, changing retention, replacing the file (re-choosing encryption and password), and deleting. For encrypted shares it also copies the access password and a ready-to-share decrypt link (`/s/<alias>#password=…`), both recovered from a password copy that is sealed to the manage token — so changing or removing the access password never asks for the original password.
 - The upload page defaults to a public visibility; turning on Private requires an access password and keeps the share out of the public directory.
-- A public share browser at `/browse.html` lists every unencrypted, unexpired share with search, a permanent-only filter, and pagination; its "My shares" tab lists the current token's shares with edit/delete actions. Password-protected shares never appear in the public list.
+- A public share browser at `/browse.html` lists every unencrypted, unexpired share with search and pagination; its "My shares" tab lists the current token's shares with edit/delete actions. Password-protected shares never appear in the public list. When a manage token is loaded, shares it owns also expose edit/delete actions right in the public list.
+- Whenever a manage token is cached locally, a key icon appears in the top-right corner; it opens the token panel to copy, download, switch/regenerate, or remove the token. Management always uses the manage token — no current-password prompt anywhere.
 - Reader pages render content in a sandboxed iframe (HTML) or a type-specific view, with meta info, file download (correct MIME/filename), and a one-click share that copies the link, including the access password when present.
 - A status page shows service health and share capacity usage: healthy below 80%, warning from 80%, and error at 99% or more.
 - Responsive layout, light/dark theme, and Chinese/English UI.
@@ -23,7 +24,7 @@ An anonymous static text-file sharing service built on Cloudflare Workers and D1
 ```text
 src/index.js          Worker routes, API, cron cleanup
 public/               Upload and reader page assets
-public/token.js       Manage token storage / import / download helpers
+public/token.js       Manage token storage, plus the top-right key icon and token panel
 public/wrap.js        Seal/recover the access password under the manage token
 migrations/           D1 migrations
 scripts/smoke-test.mjs Local smoke test (encryption, API, manage token round trip)
@@ -127,6 +128,8 @@ GET /api/shares?q=report&tag=demo&permanent=1&page=1&page_size=20
 
 Returns metadata-only items for unencrypted, unexpired shares. `q` searches alias, title, description, author, and tags; `tag` requires an exact tag match; `permanent=1` keeps permanent shares only. Pagination is capped at 50 items per page. The response never includes `content`, `salt`, or `iv`.
 
+An optional `Authorization: Bearer <manage_token>` header marks the rows that token owns: those items come back with `manageable: true` (plus `filename` and `passwordProtected`) so the UI can offer edit/delete in the public list. Without a header — or for a foreign token — every item is `manageable: false`.
+
 ### My Shares
 
 ```http
@@ -143,7 +146,7 @@ GET /api/share/<alias>/content
 Authorization: Bearer <manage_token>
 ```
 
-Returns what the server stores for the token's own share: `content` (base64), `password_protected`, `file_type`, `filename`, and `salt`/`iv` when the share is encrypted. When the share holds a password copy, `password_wrap` is included as well; only the matching manage token can open it. Missing token: `401`; a token that does not own the alias: `404`. The underlying plaintext never exists server-side, so this hands back ciphertext only. The bundled UI uses it to change or remove the access password without re-selecting the file: the browser recovers the current password from `password_wrap` (or takes the one typed in), decrypts, re-encrypts, and sends the result back through the update endpoint.
+Returns what the server stores for the token's own share: `content` (base64), `password_protected`, `file_type`, `filename`, and `salt`/`iv` when the share is encrypted. When the share holds a password copy, `password_wrap` is included as well; only the matching manage token can open it. Missing token: `401`; a token that does not own the alias: `404`. The underlying plaintext never exists server-side, so this hands back ciphertext only. The bundled UI uses it to change or remove the access password without re-selecting the file: the browser recovers the current password from `password_wrap` with the manage token, decrypts, re-encrypts, and sends the result back through the update endpoint.
 
 ### Update Share
 
@@ -179,7 +182,7 @@ Removes the share, permanent ones included.
 ## Security Notes
 
 - Password-protected shares are zero-knowledge for readers: the key is derived in the reader's browser and the server only stores ciphertext, salt, and IV.
-- Optionally the owner stores a *password wrap* (`password_wrap`): the access password encrypted with a key derived from the manage token, never the token itself (only the token's SHA-256 hash is stored). It is what lets "My shares" copy the password or a decrypt link, and lets a password change skip the original password. The server cannot open it, it is returned only to `GET /api/share/<alias>/content` (manage token required), and it is dropped whenever the password is removed. A database leak still leaves an attacker without the token, and a reader without the password still sees only ciphertext. Shares created before the wrap existed still ask for the current password once; that edit stores a wrap and later edits no longer need it.
+- Optionally the owner stores a *password wrap* (`password_wrap`): the access password encrypted with a key derived from the manage token, never the token itself (only the token's SHA-256 hash is stored). It is what lets "My shares" copy the password or a decrypt link, and lets a password change skip the original password. The server cannot open it, it is returned only to `GET /api/share/<alias>/content` (manage token required), and it is dropped whenever the password is removed. A database leak still leaves an attacker without the token, and a reader without the password still sees only ciphertext. Encrypted shares without a stored wrap stay editable for metadata, but changing their password or removing the encryption requires re-selecting the file — there is no original-password field to fall back on.
 - Unprotected shares are stored as plaintext and appear in the public share browser; password-protected shares are excluded from the public list.
 - Reader pages render uploaded HTML inside an iframe without `allow-same-origin`, so uploaded scripts cannot access the Zenshare origin. Non-HTML text types are rendered as inert DOM (escaped text/tables), never executed.
 - Manage tokens are 256-bit values from `crypto.getRandomValues` in the browser; the server stores only their SHA-256 hash, so a database leak cannot recover one. Knowing the open-source code does not help an attacker: there is no secret to derive, only an unguessable value. The token lives in `localStorage` and in the downloadable `zenshare-token.json` — it is the sole management credential, it cannot be recovered if lost, and it grants edit/delete on every share created under it.

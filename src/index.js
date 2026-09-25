@@ -359,7 +359,7 @@ function boundedInt(raw, fallback, min, max) {
   return Math.min(value, max);
 }
 
-async function handleListShares(url, env) {
+async function handleListShares(request, url, env) {
   const page = boundedInt(url.searchParams.get('page'), 1, 1, Number.MAX_SAFE_INTEGER);
   const pageSize = boundedInt(url.searchParams.get('page_size'), 20, 1, 50);
   const query = String(url.searchParams.get('q') || '').trim().slice(0, 100);
@@ -367,6 +367,7 @@ async function handleListShares(url, env) {
   const permanentOnly = ['1', 'true'].includes(
     String(url.searchParams.get('permanent') || '').toLowerCase()
   );
+  const tokenHash = await manageTokenHash(request);
 
   await ensureSchema(env);
 
@@ -407,13 +408,16 @@ async function handleListShares(url, env) {
 
   const result = await env.DB.prepare(
     `SELECT s.alias, s.title, s.description, s.author, s.tags,
-            s.file_type, s.is_permanent, s.expires_at, s.created_at
+            s.file_type, s.filename, s.password_protected,
+            s.is_permanent, s.expires_at, s.created_at,
+            CASE WHEN ? IS NOT NULL AND s.manage_token_hash = ?
+                 THEN 1 ELSE 0 END AS manageable
      FROM shares AS s
      ${whereSql}
      ORDER BY s.created_at DESC
      LIMIT ? OFFSET ?`
   )
-    .bind(...params, pageSize, offset)
+    .bind(tokenHash, tokenHash, ...params, pageSize, offset)
     .all();
   const items = (result.results || []).map((row) => ({
     alias: row.alias,
@@ -422,9 +426,12 @@ async function handleListShares(url, env) {
     author: row.author,
     tags: parseTags(row.tags),
     fileType: normalizeFileType(row.file_type),
+    filename: row.filename || '',
+    passwordProtected: row.password_protected === 1,
     isPermanent: row.is_permanent === 1,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
+    manageable: row.manageable === 1,
   }));
 
   return json({
@@ -1101,7 +1108,7 @@ export default {
       return handleAliasCheck(url, env);
     }
     if (request.method === 'GET' && pathname === '/api/shares') {
-      return handleListShares(url, env);
+      return handleListShares(request, url, env);
     }
     if (request.method === 'POST' && pathname === '/api/share') {
       return handleCreate(request, env);

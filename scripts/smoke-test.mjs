@@ -429,6 +429,42 @@ async function main() {
     throw new Error("my-shares must not expose password_wrap");
   }
 
+  const publicQuery = "q=Managed&page_size=50";
+  const publicOwnedList = await (
+    await fetch(`${BASE}/api/shares?${publicQuery}`, { headers: bearer(manageToken) })
+  ).json();
+  const ownedPublicItem = (publicOwnedList.items || []).find(
+    (item) => item.alias === managed.alias
+  );
+  if (!ownedPublicItem || ownedPublicItem.manageable !== true) {
+    throw new Error(
+      `owned share should be manageable in the public list: ${JSON.stringify(ownedPublicItem)}`
+    );
+  }
+  if (
+    "content" in ownedPublicItem ||
+    "password_wrap" in ownedPublicItem ||
+    ownedPublicItem.passwordProtected
+  ) {
+    throw new Error(`public list leaks private fields: ${JSON.stringify(ownedPublicItem)}`);
+  }
+  const publicForeignList = await (
+    await fetch(`${BASE}/api/shares?${publicQuery}`, { headers: bearer(otherToken) })
+  ).json();
+  const foreignPublicItem = (publicForeignList.items || []).find(
+    (item) => item.alias === managed.alias
+  );
+  if (!foreignPublicItem || foreignPublicItem.manageable !== false) {
+    throw new Error("a foreign token must not mark the share manageable");
+  }
+  const publicAnonList = await (await fetch(`${BASE}/api/shares?${publicQuery}`)).json();
+  const anonPublicItem = (publicAnonList.items || []).find(
+    (item) => item.alias === managed.alias
+  );
+  if (!anonPublicItem || anonPublicItem.manageable !== false) {
+    throw new Error("an anonymous public list must not mark shares manageable");
+  }
+
   const noAuthPatch = await fetch(`${BASE}/api/share/${managed.alias}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
@@ -815,6 +851,8 @@ async function main() {
         weakTokenRejected: true,
         mySharesRequiresToken: true,
         mySharesScopedToToken: true,
+        publicListFlagsOwnedSharesManageable: true,
+        publicListManageableScopedToToken: true,
         mySharesMetadataUpdate: true,
         encryptionChangeRequiresFile: true,
         contentUpdateRoundTrip: true,
