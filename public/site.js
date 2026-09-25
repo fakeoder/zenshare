@@ -145,7 +145,7 @@
       manageableLabel: '可管理此分享',
       manageableHint: '启用后可随时修改、更新和删除此分享；首次启用时会自动要求创建或导入 Token',
       tokenWarn: '请妥善保管 token 文件，它是管理分享的唯一凭证，丢失后无法找回',
-      tokenGenerate: '生成 Token',
+      tokenGenerate: '生成',
       tokenConfirm: '生成',
       tokenUpload: '导入 Token 文件',
       tokenSwitch: '导入',
@@ -337,7 +337,7 @@
         'Edit, update and delete later from My Shares; a token will be required on first use',
       tokenWarn:
         'Keep your token file safe — it is the only way to manage your shares. Losing it means losing access forever.',
-      tokenGenerate: 'Generate token',
+      tokenGenerate: 'Generate',
       tokenConfirm: 'Generate',
       tokenUpload: 'Import token file',
       tokenSwitch: 'Import',

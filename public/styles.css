@@ -1680,6 +1680,10 @@ textarea.text-input {
   font-size: 13px;
 }
 
+.token-gen-row .btn {
+  flex: none;
+}
+
 .token-bar {
   display: flex;
   align-items: center;
