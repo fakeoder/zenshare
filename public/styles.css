@@ -1644,29 +1644,15 @@ textarea.text-input {
 
 .token-gen-row {
   display: flex;
-  gap: 0;
+  gap: 6px;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
 }
 
 .token-gen-row .text-input {
-  width: 120px;
-  padding: 5px 8px;
+  width: 110px;
+  padding: 6px 10px;
   font-size: 12px;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-}
-
-.token-gen-row .text-input:focus {
-  outline: none;
-}
-
-.token-gen-row .btn {
-  border-radius: 0;
-  border-left: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 
 .token-bar {

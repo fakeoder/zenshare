@@ -158,7 +158,7 @@
       tokenSelectFile: '选择 Token 文件',
       tokenRequired: '请先在右上角加载或生成 Token',
       tokenLabelPrompt: '给 Token 起个名字方便识别（可选，留空跳过，取消放弃生成）',
-      tokenLabelPlaceholder: '标签（可选）',
+      tokenLabelPlaceholder: '标签',
       tokenLabel: '名称',
       manageToken: '管理 Token',
       copyToken: '复制 Token',
@@ -350,7 +350,7 @@
       tokenRequired: 'Load or generate a token first (top-right key icon)',
       tokenLabelPrompt:
         'Give this token a name for easy identification (optional, leave empty to skip, cancel to abort)',
-      tokenLabelPlaceholder: 'Label (optional)',
+      tokenLabelPlaceholder: 'Label',
       tokenLabel: 'Name',
       manageToken: 'Manage token',
       copyToken: 'Copy token',
