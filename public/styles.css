@@ -1658,14 +1658,28 @@ textarea.text-input {
 .split-btn {
   position: relative;
   display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.split-btn .btn {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.split-btn .btn:first-child {
+  border-right: 1px solid var(--line);
+}
+
+.split-btn .btn:hover {
+  background: var(--surface-soft);
 }
 
 .split-btn-toggle {
-  padding-left: 4px;
-  padding-right: 4px;
+  padding-left: 6px;
+  padding-right: 6px;
   min-width: 0;
-  margin-left: -1px;
-  border-left: 1px solid var(--line);
 }
 
 .split-dropdown {
