@@ -191,7 +191,9 @@
     const record = read();
     const label = record && record.label ? record.label : '';
     const hasToken = Boolean(record);
-    chrome.statusActions.hidden = !hasToken;
+    chrome.statusActions.hidden = false;
+    chrome.downloadBtn.hidden = !hasToken;
+    chrome.clearBtn.hidden = !hasToken;
     chrome.meta.hidden = !hasToken;
     chrome.labelChip.hidden = !label;
     chrome.labelChip.textContent = label;
