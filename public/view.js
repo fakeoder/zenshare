@@ -23,6 +23,7 @@
   const metaTitle = document.getElementById('metaTitle');
   const metaBody = document.getElementById('metaBody');
   const downloadBtn = document.getElementById('downloadBtn');
+  const rawLinkBtn = document.getElementById('rawLinkBtn');
   const shareBtn = document.getElementById('shareBtn');
   const shareToast = document.getElementById('shareToast');
 
@@ -53,6 +54,10 @@
   let shareToastTimer = null;
 
   document.title = `${data.title || data.alias} · Zenshare`;
+
+  if (data.passwordProtected) {
+    rawLinkBtn.hidden = true;
+  }
 
   function base64ToBytes(b64) {
     const binary = atob(b64);
@@ -300,13 +305,13 @@
     }
   }
 
-  function showShareToast() {
-    shareToast.textContent = t('copied');
+  function showShareToast(message) {
+    shareToast.textContent = message || t('copied');
     shareToast.hidden = false;
     clearTimeout(shareToastTimer);
     shareToastTimer = setTimeout(() => {
       shareToast.hidden = true;
-    }, 1600);
+    }, 2400);
   }
 
   function buildShareUrl() {
@@ -314,6 +319,10 @@
     return data.passwordProtected && unlockPassword
       ? `${base}#password=${encodeURIComponent(unlockPassword)}`
       : base;
+  }
+
+  function buildRawUrl() {
+    return new URL(`/s/${data.alias}/raw`, location.origin).href;
   }
 
   function updateLockMeta() {
@@ -431,11 +440,20 @@
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   });
 
+  rawLinkBtn.addEventListener('click', async () => {
+    closeMenu();
+    if (data.passwordProtected) return;
+    await copyToClipboard(buildRawUrl());
+    showShareToast(
+      fileType() === 'ics' ? t('rawLinkCopiedIcs') : t('rawLinkCopied')
+    );
+  });
+
   shareBtn.addEventListener('click', async () => {
     closeMenu();
     if (unlockedContent === null) return;
     await copyToClipboard(buildShareUrl());
-    showShareToast();
+    showShareToast(t('copied'));
   });
 
   document.addEventListener('zenshare:locale', () => {

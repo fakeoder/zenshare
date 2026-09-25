@@ -265,6 +265,36 @@ async function main() {
     throw new Error("unsupported file_type should be rejected");
   }
 
+  const rawIcsResponse = await fetch(`${BASE}/s/${icsCreated.alias}/raw`);
+  if (!rawIcsResponse.ok) {
+    throw new Error(`ics raw fetch failed: ${rawIcsResponse.status}`);
+  }
+  const rawIcsType = rawIcsResponse.headers.get("content-type") || "";
+  if (!rawIcsType.includes("text/calendar")) {
+    throw new Error(`ics raw content-type wrong: ${rawIcsType}`);
+  }
+  const rawDisposition = rawIcsResponse.headers.get("content-disposition") || "";
+  if (!rawDisposition.includes("smoke.ics")) {
+    throw new Error(`ics raw disposition wrong: ${rawDisposition}`);
+  }
+  const rawIcsBody = await rawIcsResponse.text();
+  if (!rawIcsBody.includes("BEGIN:VCALENDAR")) {
+    throw new Error("ics raw body mismatch");
+  }
+
+  const rawProtectedResponse = await fetch(`${BASE}/s/${created.alias}/raw`);
+  if (rawProtectedResponse.status !== 403) {
+    throw new Error(
+      `encrypted share raw should be 403, got ${rawProtectedResponse.status}`
+    );
+  }
+
+  const rawPublicResponse = await fetch(`${BASE}/s/${publicCreated.alias}/raw`);
+  const rawPublicBody = await rawPublicResponse.text();
+  if (!rawPublicResponse.ok || !rawPublicBody.includes(publicHtml)) {
+    throw new Error("public raw body mismatch");
+  }
+
   console.log(
     JSON.stringify(
       {
@@ -283,6 +313,9 @@ async function main() {
         icsRoundTrip: true,
         icsSniffRejectsInvalid: true,
         fileTypeWhitelistEnforced: true,
+        rawIcsEndpoint: true,
+        rawForbiddenForEncrypted: true,
+        rawPublicBody: true,
       },
       null,
       2

@@ -579,6 +579,69 @@ async function handleView(request, env) {
   });
 }
 
+function headerFilename(filename) {
+  const ascii = filename
+    .replace(/[^\x20-\x7e]/g, '_')
+    .replace(/["\\]/g, '_');
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
+async function handleRaw(request, env) {
+  const url = new URL(request.url);
+  let encoded = url.pathname.slice('/s/'.length);
+  if (encoded.endsWith('/raw')) {
+    encoded = encoded.slice(0, -'/raw'.length);
+  }
+  let alias;
+  try {
+    alias = decodeURIComponent(encoded);
+  } catch {
+    return json({ error: '分享不存在', code: 'not_found' }, 404);
+  }
+  const normalized = normalizeAlias(alias);
+  if (normalized.error) {
+    return json({ error: '分享不存在', code: 'not_found' }, 404);
+  }
+  await ensureSchema(env);
+
+  const row = await env.DB.prepare(
+    `SELECT id, alias, content, salt, iv, password_protected,
+            expires_at, is_permanent, file_type, filename
+     FROM shares WHERE alias = ?`
+  )
+    .bind(normalized.alias)
+    .first();
+
+  if (!row) {
+    return json({ error: '分享不存在', code: 'not_found' }, 404);
+  }
+  const now = Date.now();
+  if (!row.is_permanent && row.expires_at && row.expires_at <= now) {
+    await env.DB.prepare('DELETE FROM shares WHERE id = ?').bind(row.id).run();
+    return json({ error: '分享已过期', code: 'gone' }, 410);
+  }
+  if (row.password_protected === 1) {
+    return json(
+      { error: '私密分享不提供 raw 数据', code: 'raw_forbidden' },
+      403
+    );
+  }
+
+  const fileType = normalizeFileType(row.file_type);
+  const meta = FILE_TYPES[fileType];
+  const filename =
+    row.filename || `${row.alias}.${meta.exts[0]}`;
+
+  return new Response(toBytes(row.content), {
+    headers: {
+      'content-type': `${meta.mime}; charset=utf-8`,
+      'content-disposition': headerFilename(filename),
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+    },
+  });
+}
+
 async function cleanupExpired(env) {
   await ensureSchema(env);
   const result = await env.DB.prepare(
@@ -626,6 +689,14 @@ export default {
     }
     if (request.method === 'POST' && pathname === '/api/share') {
       return handleCreate(request, env);
+    }
+    if (
+      request.method === 'GET' &&
+      pathname.startsWith('/s/') &&
+      pathname.endsWith('/raw') &&
+      pathname !== '/s/raw'
+    ) {
+      return handleRaw(request, env);
     }
     if (request.method === 'GET' && pathname.startsWith('/s/')) {
       return handleView(request, env);

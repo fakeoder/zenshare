@@ -387,6 +387,10 @@
               <span class="field-label" data-i18n="shareLink"></span>
               <input id="resultLink" class="text-input" type="text" readonly />
             </label>
+            <label id="resultRawField" class="field" hidden>
+              <span class="field-label" data-i18n="rawLink"></span>
+              <input id="resultRawLink" class="text-input" type="text" readonly />
+            </label>
             <div class="result-actions">
               <button id="copyLinkBtn" class="btn ghost" type="button">
                 <svg
@@ -404,6 +408,23 @@
                   <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
                 </svg>
                 <span id="copyLinkLabel" data-i18n="copyLink"></span>
+              </button>
+              <button id="copyRawBtn" class="btn ghost" type="button" hidden>
+                <svg
+                  class="button-icon"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+                <span id="copyRawLabel" data-i18n="copyRawLink"></span>
               </button>
               <button id="copyPwdBtn" class="btn ghost" type="button" hidden>
                 <svg

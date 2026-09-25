@@ -101,6 +101,14 @@ Content-Type: application/json
 
 `alias` is optional; an empty or omitted value generates a UUID alias. `expires_days` must be `1`, `7`, `30`, or `null` for permanent retention, and defaults to 7. When `password_protected` is `true`, `salt` and `iv` are required. `file_type` must be one of `html`, `ics`, `csv`, `json`, `md`, `txt`, `xml`, `yaml` (defaults to `html`); `filename` is optional and used as the download name. Unencrypted `ics` content is checked for `BEGIN:VCALENDAR`.
 
+### Raw Content
+
+```http
+GET /s/<alias>/raw
+```
+
+Returns the original bytes with the correct `Content-Type` and `Content-Disposition` (filename from `filename`, falling back to `<alias>.<ext>`). Available for unencrypted, unexpired shares only; password-protected shares return `403`. An ICS share's raw URL can be used directly as a calendar subscription URL.
+
 ### List Public Shares
 
 ```http

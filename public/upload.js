@@ -50,8 +50,12 @@
   const submitLabel = $('submitLabel');
   const resultPanel = $('resultPanel');
   const resultLink = $('resultLink');
+  const resultRawField = $('resultRawField');
+  const resultRawLink = $('resultRawLink');
   const copyLinkBtn = $('copyLinkBtn');
   const copyLinkLabel = $('copyLinkLabel');
+  const copyRawBtn = $('copyRawBtn');
+  const copyRawLabel = $('copyRawLabel');
   const copyPwdBtn = $('copyPwdBtn');
   const copyPwdLabel = $('copyPwdLabel');
   const openLinkBtn = $('openLinkBtn');
@@ -68,6 +72,7 @@
   let checkCounter = 0;
   let lastCheck = null;
   let createdBaseUrl = '';
+  let createdRawUrl = '';
   let createdPassword = null;
 
   function rebuildExpiryOptions() {
@@ -409,7 +414,9 @@
     const hasPassword = Boolean(createdPassword);
     copyPwdBtn.hidden = !hasPassword;
     copyLinkLabel.textContent = t('copyLink');
+    copyRawLabel.textContent = t('copyRawLink');
     copyPwdLabel.textContent = t('copyWithPassword');
+    copyRawBtn.hidden = hasPassword || !createdRawUrl;
     openLinkLabel.textContent = hasPassword
       ? t('openLinkWithPassword')
       : t('openLink');
@@ -518,8 +525,14 @@
         `/s/${result.alias}`,
         location.origin
       ).href;
+      createdRawUrl =
+        visibility === 'private'
+          ? ''
+          : new URL(`/s/${result.alias}/raw`, location.origin).href;
       createdPassword = visibility === 'private' ? passwordInput.value : null;
       resultLink.value = createdBaseUrl;
+      resultRawLink.value = createdRawUrl;
+      resultRawField.hidden = !createdRawUrl;
       refreshResultButtons();
       try {
         localStorage.removeItem(PREVIEW_STORAGE_KEY);
@@ -555,6 +568,15 @@
 
   copyLinkBtn.addEventListener('click', () => {
     copyText(createdBaseUrl, copyLinkLabel, 'copyLink');
+  });
+  copyRawBtn.addEventListener('click', () => {
+    copyText(createdRawUrl, copyRawLabel, 'copyRawLink');
+    if (selectedFileType === 'ics') {
+      copyRawLabel.textContent = t('rawLinkCopiedIcs');
+      setTimeout(() => {
+        copyRawLabel.textContent = t('copyRawLink');
+      }, 1600);
+    }
   });
   copyPwdBtn.addEventListener('click', () => {
     copyText(withPasswordUrl(), copyPwdLabel, 'copyWithPassword');
