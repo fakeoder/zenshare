@@ -426,11 +426,21 @@
   function applyManageable() {
     tokenPanel.hidden = !manageableInput.checked;
     if (!manageableInput.checked) return;
+    const record = tokenStore.read();
+    if (!record) {
+      tokenStore.open();
+      return;
+    }
     renderTokenStatus();
   }
 
   manageableInput.addEventListener('change', applyManageable);
-  document.addEventListener('zenshare:token', renderTokenStatus);
+  document.addEventListener('zenshare:token', () => {
+    renderTokenStatus();
+    if (manageableInput.checked && tokenStore.read()) {
+      tokenPanel.hidden = false;
+    }
+  });
 
   function withPasswordUrl() {
     return createdPassword
@@ -501,9 +511,7 @@
       manageToken = tokenStore.read();
       if (!manageToken) {
         showError(t('tokenRequired'));
-        applyManageable();
-        const keyBtn = document.getElementById('tokenKeyBtn');
-        if (keyBtn) keyBtn.focus();
+        tokenStore.open();
         return;
       }
     }

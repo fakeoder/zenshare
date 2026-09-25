@@ -348,6 +348,7 @@
     importText,
     short,
     mountChrome,
+    open: openTokenModal,
   };
 
   mountChrome();

@@ -24,6 +24,7 @@
   const mineTokenBar = $('mineTokenBar');
   const mineTokenStatus = $('mineTokenStatus');
   const minePrompt = $('minePrompt');
+  const promptOpenBtn = $('promptOpenTokenModal');
 
   const editModal = $('editModal');
   const editForm = $('editForm');
@@ -566,6 +567,8 @@
     state.page += 1;
     load();
   });
+
+  promptOpenBtn.addEventListener('click', () => tokenStore.open());
 
   document.addEventListener('zenshare:token', () => {
     state.page = 1;
