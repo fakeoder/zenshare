@@ -572,6 +572,12 @@
         payload.content = bytesToBase64(encrypted.cipher);
         payload.salt = bytesToBase64(encrypted.salt);
         payload.iv = bytesToBase64(encrypted.iv);
+        if (manageToken) {
+          payload.password_wrap = await window.ZenshareWrap.wrap(
+            passwordInput.value,
+            manageToken.token
+          );
+        }
       } else {
         payload.content = bytesToBase64(bytes);
       }

@@ -60,6 +60,48 @@ async function decrypt(cipher, salt, iv, password) {
   return new TextDecoder("utf-8").decode(plain);
 }
 
+async function deriveWrapKey(token, salt, usages) {
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(token),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations: ITERATIONS },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    usages
+  );
+}
+
+async function wrapPassword(password, token) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveWrapKey(token, salt, ["encrypt"]);
+  const cipher = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    new TextEncoder().encode(password)
+  );
+  return `v1.${bytesToBase64(salt)}.${bytesToBase64(iv)}.${bytesToBase64(
+    new Uint8Array(cipher)
+  )}`;
+}
+
+async function unwrapPassword(bundle, token) {
+  const parts = String(bundle).split(".");
+  if (parts.length !== 4 || parts[0] !== "v1") throw new Error("invalid_wrap");
+  const salt = base64ToBytes(parts[1]);
+  const iv = base64ToBytes(parts[2]);
+  const cipher = base64ToBytes(parts[3]);
+  const key = await deriveWrapKey(token, salt, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipher);
+  return new TextDecoder("utf-8").decode(plain);
+}
+
 async function main() {
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
   const html = '<!doctype html><h1>Secret Content</h1><p>private note</p>';
@@ -383,6 +425,9 @@ async function main() {
   if (managedItem.passwordProtected || managedItem.fileType !== "html") {
     throw new Error(`my-shares metadata wrong: ${JSON.stringify(managedItem)}`);
   }
+  if ("password_wrap" in managedItem) {
+    throw new Error("my-shares must not expose password_wrap");
+  }
 
   const noAuthPatch = await fetch(`${BASE}/api/share/${managed.alias}`, {
     method: "PATCH",
@@ -482,6 +527,7 @@ async function main() {
       iv: bytesToBase64(reEncrypted.iv),
       file_type: "html",
       filename: "managed.html",
+      password_wrap: await wrapPassword(newPassword, manageToken),
     }),
   });
   if (!encryptPatch.ok) {
@@ -498,6 +544,9 @@ async function main() {
   );
   if (!viewMatch) throw new Error("share-data block missing after encrypt");
   const viewData = JSON.parse(viewMatch[1]);
+  if ("password_wrap" in viewData) {
+    throw new Error("public view page must not expose password_wrap");
+  }
   const decrypted = await decrypt(
     base64ToBytes(viewData.content),
     base64ToBytes(viewData.salt),
@@ -538,6 +587,47 @@ async function main() {
   );
   if (ownerPlain !== newSecret) throw new Error("owner content does not decrypt");
 
+  if (!ownerContent.password_wrap) {
+    throw new Error("owner content must include password_wrap");
+  }
+  const recoveredPassword = await unwrapPassword(
+    ownerContent.password_wrap,
+    manageToken
+  );
+  if (recoveredPassword !== newPassword) {
+    throw new Error("password_wrap does not unwrap to the access password");
+  }
+  let wrongTokenUnwrapRejected = false;
+  try {
+    await unwrapPassword(ownerContent.password_wrap, otherToken);
+  } catch {
+    wrongTokenUnwrapRejected = true;
+  }
+  if (!wrongTokenUnwrapRejected) {
+    throw new Error("a foreign manage token must not unwrap the password");
+  }
+
+  const invalidWrapPatch = await fetch(`${BASE}/api/share/${managed.alias}`, {
+    method: "PATCH",
+    headers: { ...bearer(manageToken), "content-type": "application/json" },
+    body: JSON.stringify({
+      content: ownerContent.content,
+      password_protected: true,
+      salt: ownerContent.salt,
+      iv: ownerContent.iv,
+      file_type: ownerContent.file_type,
+      filename: ownerContent.filename,
+      password_wrap: "not a valid wrap",
+    }),
+  });
+  if (invalidWrapPatch.ok) {
+    throw new Error("a malformed password_wrap should be rejected");
+  }
+  const invalidWrapData = await invalidWrapPatch.json();
+  if (invalidWrapData.code !== "password_wrap_invalid") {
+    throw new Error(`unexpected wrap rejection: ${JSON.stringify(invalidWrapData)}`);
+  }
+
   const changedPassword = "managed-pass-789";
   const reEncryptedAgain = await encrypt(
     new TextEncoder().encode(ownerPlain),
@@ -553,6 +643,7 @@ async function main() {
       iv: bytesToBase64(reEncryptedAgain.iv),
       file_type: ownerContent.file_type,
       filename: ownerContent.filename,
+      password_wrap: await wrapPassword(changedPassword, manageToken),
     }),
   });
   if (!passwordPatch.ok) {
@@ -586,6 +677,95 @@ async function main() {
     oldPasswordRejected = true;
   }
   if (!oldPasswordRejected) throw new Error("the previous password should stop working");
+
+  const contentAfterChange = await (
+    await fetch(`${BASE}/api/share/${managed.alias}/content`, {
+      headers: bearer(manageToken),
+    })
+  ).json();
+  if (
+    !contentAfterChange.password_wrap ||
+    contentAfterChange.password_wrap === ownerContent.password_wrap
+  ) {
+    throw new Error("password change must store a fresh password_wrap");
+  }
+  const recoveredChanged = await unwrapPassword(
+    contentAfterChange.password_wrap,
+    manageToken
+  );
+  if (recoveredChanged !== changedPassword) {
+    throw new Error("the stored password_wrap must match the new password");
+  }
+
+  const clearPatch = await fetch(`${BASE}/api/share/${managed.alias}`, {
+    method: "PATCH",
+    headers: { ...bearer(manageToken), "content-type": "application/json" },
+    body: JSON.stringify({
+      content: bytesToBase64(new TextEncoder().encode("<h1>cleared</h1>")),
+      password_protected: false,
+      file_type: "html",
+      filename: "managed.html",
+    }),
+  });
+  if (!clearPatch.ok) {
+    throw new Error(`clear password patch failed: ${JSON.stringify(await clearPatch.json())}`);
+  }
+  const contentAfterClear = await (
+    await fetch(`${BASE}/api/share/${managed.alias}/content`, {
+      headers: bearer(manageToken),
+    })
+  ).json();
+  if (contentAfterClear.password_protected) {
+    throw new Error("share should be unencrypted after clearing the password");
+  }
+  if ("password_wrap" in contentAfterClear) {
+    throw new Error("password_wrap must be dropped together with the password");
+  }
+
+  const wrapSharePassword = "wrap-pass-321";
+  const wrapEncrypted = await encrypt(
+    new TextEncoder().encode("<h1>wrapped</h1>"),
+    wrapSharePassword
+  );
+  const wrapCreate = await fetch(`${BASE}/api/share`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      alias: "",
+      title: "Wrapped Share",
+      password_protected: true,
+      content: bytesToBase64(wrapEncrypted.cipher),
+      salt: bytesToBase64(wrapEncrypted.salt),
+      iv: bytesToBase64(wrapEncrypted.iv),
+      password_wrap: await wrapPassword(wrapSharePassword, manageToken),
+      expires_days: null,
+      manage_token: manageToken,
+    }),
+  });
+  const wrapCreated = await wrapCreate.json();
+  if (!wrapCreate.ok) {
+    throw new Error(`wrapped create failed: ${JSON.stringify(wrapCreated)}`);
+  }
+  const wrapContentResponse = await fetch(
+    `${BASE}/api/share/${wrapCreated.alias}/content`,
+    { headers: bearer(manageToken) }
+  );
+  const wrapContent = await wrapContentResponse.json();
+  if (!wrapContentResponse.ok || !wrapContent.password_wrap) {
+    throw new Error(`wrapped create content failed: ${JSON.stringify(wrapContent)}`);
+  }
+  const recoveredCreated = await unwrapPassword(
+    wrapContent.password_wrap,
+    manageToken
+  );
+  if (recoveredCreated !== wrapSharePassword) {
+    throw new Error("created share must store an unwrappable password_wrap");
+  }
+  const wrapDelete = await fetch(`${BASE}/api/share/${wrapCreated.alias}`, {
+    method: "DELETE",
+    headers: bearer(manageToken),
+  });
+  if (!wrapDelete.ok) throw new Error("wrapped share delete failed");
 
   const wrongDelete = await fetch(`${BASE}/api/share/${managed.alias}`, {
     method: "DELETE",
@@ -641,6 +821,13 @@ async function main() {
         reEncryptRoundTrip: true,
         ownerContentEndpoint: true,
         passwordChangeWithoutNewFile: true,
+        passwordWrapRecoveredWithToken: true,
+        passwordWrapScopedToToken: true,
+        passwordWrapRejectedWhenMalformed: true,
+        passwordWrapReplacedOnChange: true,
+        passwordWrapClearedWithPassword: true,
+        passwordWrapCreatedWithShare: true,
+        passwordWrapHiddenFromPublicViews: true,
         deleteScopedToToken: true,
         deleteRemovesShare: true,
       },

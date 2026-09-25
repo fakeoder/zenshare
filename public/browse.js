@@ -350,6 +350,31 @@
           copyText(rawUrl, event.currentTarget)
         )
       );
+    } else {
+      actions.append(
+        actionButton('copyPassword', async (event) => {
+          const button = event.currentTarget;
+          try {
+            const password = await recoverPassword(item, tokenStore.read());
+            errorEl.hidden = true;
+            await copyText(password, button);
+          } catch (error) {
+            showListError(error);
+          }
+        })
+      );
+      actions.append(
+        actionButton('copyDecryptLink', async (event) => {
+          const button = event.currentTarget;
+          try {
+            const password = await recoverPassword(item, tokenStore.read());
+            errorEl.hidden = true;
+            await copyText(decryptLink(item, password), button);
+          } catch (error) {
+            showListError(error);
+          }
+        })
+      );
     }
     actions.append(actionButton('editShare', () => openEdit(item)));
     const deleteBtn = actionButton('deleteShare', () => removeItem(item));
@@ -828,6 +853,40 @@
     return result;
   }
 
+  async function recoverPassword(item, record) {
+    if (!record) {
+      const error = new Error('token_required');
+      error.code = 'token_required';
+      throw error;
+    }
+    const current = await fetchShareContent(item.alias, record);
+    if (!current.password_wrap) {
+      const error = new Error('password_not_recoverable');
+      error.code = 'password_not_recoverable';
+      throw error;
+    }
+    return window.ZenshareWrap.unwrap(current.password_wrap, record.token);
+  }
+
+  function showListError(error) {
+    const code = (error && error.code) || '';
+    errorEl.textContent =
+      code === 'token_required'
+        ? t('tokenRequired')
+        : code === 'password_not_recoverable'
+          ? t('passwordNotRecoverable')
+          : t('editContentLoadFailed');
+    errorEl.hidden = false;
+  }
+
+  function decryptLink(item, password) {
+    const base = new URL(
+      `/s/${encodeURIComponent(item.alias)}`,
+      location.origin
+    ).href;
+    return `${base}#password=${encodeURIComponent(password)}`;
+  }
+
   function bytesToBase64(bytes) {
     let binary = '';
     const chunk = 0x8000;
@@ -873,7 +932,7 @@
     }
   }
 
-  async function applyContent(payload, bytes, isPrivate) {
+  async function applyContent(payload, bytes, isPrivate, record) {
     if (isPrivate) {
       const password = editPasswordInput.value.trim() || generatePassword();
       const encrypted = await encryptBytes(bytes, password);
@@ -881,6 +940,10 @@
       payload.content = bytesToBase64(encrypted.cipher);
       payload.salt = bytesToBase64(encrypted.salt);
       payload.iv = bytesToBase64(encrypted.iv);
+      payload.password_wrap = await window.ZenshareWrap.wrap(
+        password,
+        record.token
+      );
       return;
     }
     payload.password_protected = false;
@@ -922,7 +985,7 @@
         const bytes = new Uint8Array(await editFile.file.arrayBuffer());
         payload.file_type = editFile.type;
         payload.filename = editFile.file.name;
-        await applyContent(payload, bytes, targetPrivate);
+        await applyContent(payload, bytes, targetPrivate, record);
       } else if (targetPrivate !== encryptedNow || (targetPrivate && newPassword)) {
         let current;
         try {
@@ -936,21 +999,41 @@
           return;
         }
 
-        let bytes;
+        let bytes = null;
         if (current.password_protected) {
           if (!current.salt || !current.iv) {
             showEditError(t('editContentLoadFailed'));
             return;
           }
-          const oldPassword = editOldPasswordInput.value;
-          if (!oldPassword) {
+          const candidates = [];
+          if (current.password_wrap) {
+            try {
+              candidates.push(
+                await window.ZenshareWrap.unwrap(
+                  current.password_wrap,
+                  record.token
+                )
+              );
+            } catch {
+              // a broken wrap falls back to the typed password below
+            }
+          }
+          const typed = editOldPasswordInput.value;
+          if (typed && !candidates.includes(typed)) candidates.push(typed);
+          if (!candidates.length) {
             showEditError(t('editOldPasswordRequired'));
             editOldPasswordInput.focus();
             return;
           }
-          try {
-            bytes = await decryptBytes(current, oldPassword);
-          } catch {
+          for (const candidate of candidates) {
+            try {
+              bytes = await decryptBytes(current, candidate);
+              break;
+            } catch {
+              // try the next candidate
+            }
+          }
+          if (!bytes) {
             showEditError(t('editWrongPassword'));
             editOldPasswordInput.focus();
             return;
@@ -961,7 +1044,7 @@
 
         payload.file_type = current.file_type;
         payload.filename = current.filename;
-        await applyContent(payload, bytes, targetPrivate);
+        await applyContent(payload, bytes, targetPrivate, record);
       }
 
       const response = await fetch(

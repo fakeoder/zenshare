@@ -30,7 +30,8 @@ const SHARES_TABLE_SQL = `
     created_at INTEGER NOT NULL,
     file_type TEXT NOT NULL DEFAULT 'html',
     filename TEXT NOT NULL DEFAULT '',
-    manage_token_hash TEXT
+    manage_token_hash TEXT,
+    password_wrap TEXT
   )
 `;
 const SHARES_INDEX_SQL = `
@@ -141,6 +142,19 @@ function normalizeFileType(raw) {
   return FILE_TYPES[value] ? value : 'html';
 }
 
+const PASSWORD_WRAP_RE = /^[A-Za-z0-9+/=._-]+$/;
+
+function cleanPasswordWrap(raw) {
+  if (raw === undefined || raw === null || raw === '') return { wrap: null };
+  if (typeof raw !== 'string') {
+    return { error: '密码封装格式错误', code: 'password_wrap_invalid' };
+  }
+  if (raw.length > 4096 || !PASSWORD_WRAP_RE.test(raw)) {
+    return { error: '密码封装格式错误', code: 'password_wrap_invalid' };
+  }
+  return { wrap: raw };
+}
+
 function cleanFilename(raw) {
   if (raw === undefined || raw === null) return '';
   if (typeof raw !== 'string') return { error: '文件名格式错误' };
@@ -215,6 +229,11 @@ function ensureSchema(env) {
           env.DB.prepare(
             'ALTER TABLE shares ADD COLUMN manage_token_hash TEXT'
           )
+        );
+      }
+      if (!columns.has('password_wrap')) {
+        alters.push(
+          env.DB.prepare('ALTER TABLE shares ADD COLUMN password_wrap TEXT')
         );
       }
       if (alters.length) await env.DB.batch(alters);
@@ -440,7 +459,7 @@ async function requireManageRow(request, env, rawAlias) {
   const row = await env.DB.prepare(
     `SELECT id, alias, title, description, author, tags, content, salt, iv,
             password_protected, expires_at, is_permanent, created_at,
-            file_type, filename
+            file_type, filename, password_wrap
      FROM shares WHERE alias = ? AND manage_token_hash = ?`
   )
     .bind(normalized.alias, tokenHash)
@@ -554,6 +573,9 @@ async function handleGetContent(request, env, rawAlias) {
     payload.salt = bytesToBase64(toBytes(row.salt));
     payload.iv = bytesToBase64(toBytes(row.iv));
   }
+  if (row.password_wrap) {
+    payload.password_wrap = row.password_wrap;
+  }
   return json(payload);
 }
 
@@ -583,6 +605,7 @@ async function handleUpdate(request, env, rawAlias) {
   let salt = null;
   let iv = null;
   let passwordProtected = row.password_protected === 1;
+  let passwordWrap = null;
   let fileType = normalizeFileType(row.file_type);
   let filename = row.filename || '';
 
@@ -629,6 +652,11 @@ async function handleUpdate(request, env, rawAlias) {
         return json({ error: '加密参数无效', code: 'crypto_params_invalid' }, 400);
       }
     }
+    const wrapResult = cleanPasswordWrap(body.password_wrap);
+    if (wrapResult.error) {
+      return json({ error: wrapResult.error, code: wrapResult.code }, 400);
+    }
+    passwordWrap = passwordProtected ? wrapResult.wrap : null;
     if (!passwordProtected && fileType === 'ics') {
       const text = sniffText(content);
       if (!text.includes('BEGIN:VCALENDAR')) {
@@ -698,6 +726,7 @@ async function handleUpdate(request, env, rawAlias) {
     assign('salt', salt);
     assign('iv', iv);
     assign('password_protected', passwordProtected ? 1 : 0);
+    assign('password_wrap', passwordWrap);
     assign('file_type', fileType);
     assign('filename', filename);
   }
@@ -807,6 +836,7 @@ async function handleCreate(request, env) {
   const passwordProtected = body.password_protected === true;
   let salt = null;
   let iv = null;
+  let passwordWrap = null;
   if (passwordProtected) {
     if (typeof body.salt !== 'string' || typeof body.iv !== 'string') {
       return json({ error: '加密参数缺失', code: 'crypto_params_missing' }, 400);
@@ -820,6 +850,11 @@ async function handleCreate(request, env) {
     if (salt.byteLength < 16 || iv.byteLength !== 12) {
       return json({ error: '加密参数无效', code: 'crypto_params_invalid' }, 400);
     }
+    const wrapResult = cleanPasswordWrap(body.password_wrap);
+    if (wrapResult.error) {
+      return json({ error: wrapResult.error, code: wrapResult.code }, 400);
+    }
+    passwordWrap = wrapResult.wrap;
   }
 
   const parsedExpires = parseExpires(body);
@@ -842,8 +877,8 @@ async function handleCreate(request, env) {
     try {
       await env.DB.prepare(
         `INSERT INTO shares
-          (alias, title, description, author, tags, content, salt, iv, password_protected, expires_at, is_permanent, created_at, file_type, filename, manage_token_hash)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (alias, title, description, author, tags, content, salt, iv, password_protected, expires_at, is_permanent, created_at, file_type, filename, manage_token_hash, password_wrap)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
         .bind(
           alias,
@@ -860,7 +895,8 @@ async function handleCreate(request, env) {
           createdAt,
           fileType,
           filename,
-          manageTokenHash
+          manageTokenHash,
+          passwordWrap
         )
         .run();
       return json({
