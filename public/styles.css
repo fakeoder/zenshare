@@ -1683,8 +1683,8 @@ textarea.text-input {
 }
 
 .split-dropdown {
-  position: fixed;
-  z-index: 1000;
+  position: absolute;
+  z-index: 10;
   display: flex;
   gap: 6px;
   align-items: center;

@@ -249,10 +249,6 @@
             <div class="split-btn">
               <button id="tokenManageGenerate" class="btn ghost small" type="button" data-i18n="tokenGenerate"></button>
               <button id="tokenLabelToggle" class="btn ghost small split-btn-toggle" type="button" aria-label="Options">&#9662;</button>
-              <div id="tokenLabelDropdown" class="split-dropdown" hidden>
-                <input id="tokenManageLabelInput" class="text-input" type="text" maxlength="60" data-i18n-placeholder="tokenLabelPlaceholder" />
-                <button id="tokenManageGenerateLabeled" class="btn primary small" type="button" data-i18n="tokenConfirm"></button>
-              </div>
             </div>
             <button id="tokenManageClear" class="btn ghost small danger" type="button" data-i18n="tokenRemove"></button>
             <input id="tokenManageFile" type="file" accept=".json,application/json" hidden />
@@ -261,6 +257,10 @@
           <div class="modal-actions">
             <button class="btn ghost" type="button" data-close-token data-i18n="close"></button>
           </div>
+        </div>
+        <div id="tokenLabelDropdown" class="split-dropdown" hidden>
+          <input id="tokenManageLabelInput" class="text-input" type="text" maxlength="60" data-i18n-placeholder="tokenLabelPlaceholder" />
+          <button id="tokenManageGenerateLabeled" class="btn primary small" type="button" data-i18n="tokenConfirm"></button>
         </div>
       </div>`;
     document.body.append(modal);
@@ -349,9 +349,10 @@
       const open = !chrome.labelDropdown.hidden;
       chrome.labelDropdown.hidden = open;
       if (!open) {
-        const rect = chrome.labelToggle.getBoundingClientRect();
-        chrome.labelDropdown.style.top = `${rect.bottom + 4}px`;
-        chrome.labelDropdown.style.left = `${rect.left}px`;
+        const btnRect = chrome.labelToggle.getBoundingClientRect();
+        const cardRect = chrome.modal.querySelector('.modal-card').getBoundingClientRect();
+        chrome.labelDropdown.style.top = `${btnRect.bottom - cardRect.top + 4}px`;
+        chrome.labelDropdown.style.left = `${btnRect.left - cardRect.left}px`;
         chrome.labelInput.focus();
       }
     });
