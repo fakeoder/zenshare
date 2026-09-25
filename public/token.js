@@ -195,7 +195,7 @@
     chrome.downloadBtn.hidden = !hasToken;
     chrome.clearBtn.hidden = !hasToken;
     chrome.meta.hidden = !hasToken;
-    chrome.labelChip.hidden = !label;
+    chrome.labelChip.hidden = true;
     chrome.labelChip.textContent = label;
     chrome.labelChip.title = label;
     chrome.labelChip.setAttribute('aria-label', label ? `${t('tokenLabel')}: ${label}` : '');
